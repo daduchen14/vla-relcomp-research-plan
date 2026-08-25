@@ -1,5 +1,7 @@
 # Gate 2（D8）
 
+H2 运行对应：C4 先完成 SmolVLA L0 `5 tasks×5 trials=25`；只在冻结规则触发时进 C5 OpenVLA。峰值显存与墙钟只填 command receipt/episode registry 的真实值。
+
 | 模型 | L0 成功 k/25 与 CI | L1/L2 | 异常率 | 中位墙钟 | 峰值显存 | 全评测估计 | 结论 |
 |---|---|---|---|---|---|---|---|
 | SmolVLA | 待实测 | 待实测 | 待实测 | 待实测 | 待实测 | 待实测 | 待定 |

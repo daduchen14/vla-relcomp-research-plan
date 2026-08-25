@@ -1,5 +1,7 @@
 # Gate 1（D4）
 
+H2 运行对应：先完成 C0–C3；引用 `run_manifest.json`、C3 command receipt、`one_episode_*.json`、registry 行、日志与视频。`--dry-run` 和 fixture 不能勾选本 Gate。
+
 - [ ] Ubuntu/NVIDIA 环境与版本记录完整
 - [ ] 锁定 repo/model/data revision
 - [ ] 同配置单 episode 可重复启动

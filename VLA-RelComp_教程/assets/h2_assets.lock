@@ -1,0 +1,11 @@
+# H2 public asset lock. Metadata queried from the official Hugging Face API on 2026-08-25.
+# kind|status|repo_id|revision|expected_bytes|path|sha256
+model|required|VLA-Arena/smolvla-vla-arena|ef87aa3f97a4feaed69c93b9ed2014bba07acf8a|2126|pretrained_model/config.json|-
+model|required|VLA-Arena/smolvla-vla-arena|ef87aa3f97a4feaed69c93b9ed2014bba07acf8a|906713328|pretrained_model/model.safetensors|1b9b4c5a3d0159b33b104569facc6d4488253da8b3ee0e64b8a2597073314d1d
+model|required|VLA-Arena/smolvla-vla-arena|ef87aa3f97a4feaed69c93b9ed2014bba07acf8a|5582|pretrained_model/train_config.json|-
+model|conditional|VLA-Arena/openvla-7b-finetuned-vla-arena|779caf6517b5aeb9ed33882812a0c5f03f48c86e|4925122448|model-00001-of-00004.safetensors|e1f7e3e7760992ec7ef339da3c02e8f90b306aa1b18dd98504fc2ff74636c701
+model|conditional|VLA-Arena/openvla-7b-finetuned-vla-arena|779caf6517b5aeb9ed33882812a0c5f03f48c86e|4947392496|model-00002-of-00004.safetensors|f8775248d07e8fa31fafb2190fbabb1bd8bd0e3be68846e5903ced8437e77ef1
+model|conditional|VLA-Arena/openvla-7b-finetuned-vla-arena|779caf6517b5aeb9ed33882812a0c5f03f48c86e|4947417456|model-00003-of-00004.safetensors|e23d69d13793cb4f3a0e90380b6cae05462a431ec9a97c57a2632f1870285e7a
+model|conditional|VLA-Arena/openvla-7b-finetuned-vla-arena|779caf6517b5aeb9ed33882812a0c5f03f48c86e|262668432|model-00004-of-00004.safetensors|b14b0bd9f4601f7e584e9eeb44e305e99abad7e9ef0f7baf9f4cd7825b29ffb5
+model|conditional|VLA-Arena/openvla-7b-finetuned-vla-arena|779caf6517b5aeb9ed33882812a0c5f03f48c86e|499723|tokenizer.model|9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347
+dataset|not_required|VLA-Arena/VLA_Arena_L0_L_lerobot_smolvla|66c29bbfbdb663915848abaffe5226d875d795aa|32473928906|ALL|DO_NOT_DOWNLOAD_FOR_H2

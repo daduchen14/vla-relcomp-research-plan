@@ -1,0 +1,148 @@
+# H2 Linux/NVIDIA 参考运行预检包
+
+> 状态：`Mac 免费实测 + 锁定源码静态核验`。本包没有执行 VLA-Arena episode、没有加载 checkpoint、没有产生 GPU 性能或 Gate 1–3 结论。
+
+## 一、唯一目标与边界
+
+本包把 D0—D14 的真实参考运行准备到：拿到一台 Linux/NVIDIA 实例后，可按检查点复制执行，且每步有版本、命令、时间、退出码、GPU 快照、日志、结果和哈希可追溯。唯一 suite 仍是 `extrapolation_preposition_combinations`，不训练、不扩第二 suite，不提前设计 D15 以后修复。
+
+锁定项：
+
+- VLA-Arena：`babe582ebffc82b979b77964a7e56417d02f63a4`；
+- SmolVLA：`ef87aa3f97a4feaed69c93b9ed2014bba07acf8a`；
+- OpenVLA：`779caf6517b5aeb9ed33882812a0c5f03f48c86e`；
+- 完整来源、文件大小与大文件 SHA-256 见 `assets/h2_assets.lock`。
+
+## 二、实例规格（工程估计，未运行）
+
+| | 推荐规格 | 备选规格 |
+|---|---|---|
+| OS/架构 | Ubuntu 22.04 LTS, x86_64 | Ubuntu 20.04+ x86_64 |
+| GPU | A100/H100 80 GB | L40S/A6000 48 GB；仅单进程，OpenVLA OOM 即停 |
+| CPU/RAM | 16 vCPU / 128 GB | 8 vCPU / 64 GB |
+| 本地 NVMe 可用 | 300 GB | 220 GB；不得下载训练数据 |
+| 驱动/渲染 | NVIDIA 驱动可被 `nvidia-smi` 识别；EGL | 同左 |
+
+上游声明 Ubuntu 20.04+、Python 3.11、CUDA 11.8+。H2 选 Ubuntu 22.04 是为降低系统库差异；Python 由 `uv` 的隔离项目提供，不更改系统 Python。首次付费只需租一台推荐规格实例；不同时租第二台。
+
+预估下载量：代码 Git pack 约 0.41 GB（当前完整工作树约 1.3 GB），SmolVLA 评测权重 0.91 GB，OpenVLA 约 15.08 GB（仅条件触发），uv/PyTorch/CUDA 依赖约 10–30 GB；不下载 32.47 GB 训练数据。预估 GPU 占用：Smol-only 准备与 pilot 先预留 4–8 GPU·h；若 Gate 2 规则触发 OpenVLA，总预留 8–16 GPU·h。这些数字必须在第一个真实 episode 后用实测墙钟重算。
+
+## 三、目录与一次性变量
+
+以大容量挂载目录为根，不要把 cache 放到系统盘：
+
+```bash
+export H2_ROOT=/mnt/vla-relcomp-h2
+export H2_TUTORIAL="$H2_ROOT/tutorial/VLA-RelComp_教程"
+export H2_UPSTREAM="$H2_ROOT/upstream/VLA-Arena"
+export H2_ASSETS="$H2_ROOT/assets"
+export H2_CACHE="$H2_ROOT/cache"
+export H2_VENVS="$H2_ROOT/venvs"
+export H2_RUN_ID="h2-$(date -u +%Y%m%dT%H%M%SZ)"
+export H2_RUN="$H2_ROOT/runs/$H2_RUN_ID"
+export HF_HOME="$H2_CACHE/huggingface"
+export UV_CACHE_DIR="$H2_CACHE/uv"
+export XDG_CACHE_HOME="$H2_CACHE/xdg"
+export MUJOCO_GL=egl
+export PYOPENGL_PLATFORM=egl
+export CUDA_VISIBLE_DEVICES=0
+mkdir -p "$H2_ROOT/upstream" "$H2_ASSETS" "$H2_CACHE" "$H2_VENVS" "$H2_ROOT/runs"
+```
+
+`H2_TUTORIAL` 可来自私有分支 clone，也可由本机安全上传；不把 GitHub/HF token 写入上述变量、脚本或日志。下载完并通过 receipt/SHA-256 后，`h2_one_episode.py` 会在模型导入前自动设置 `HF_HUB_OFFLINE=1` 与 `TRANSFORMERS_OFFLINE=1`，真实 episode 只从本地已校验目录加载。
+
+## 四、最短可执行路径
+
+### 0. 只读系统探针
+
+```bash
+mkdir -p "$H2_RUN/system"
+python3 "$H2_TUTORIAL/scripts/h2_system_probe.py" \
+  --mode linux-gpu --disk-root "$H2_ROOT" --output "$H2_RUN/system/probe.json"
+```
+
+退出 0 才继续。探针不安装包，不启动 CUDA kernel。Ubuntu 系统包若缺失，仅安装 `git curl ffmpeg libegl1 libgl1 libglfw3`；这一步可能需要实例管理员权限，不在本机预先执行。
+
+### 1. 初始化证据树
+
+```bash
+python3 "$H2_TUTORIAL/scripts/h2_prepare_run.py" init \
+  --run-root "$H2_RUN" --upstream "$H2_UPSTREAM"
+```
+
+证据树固定为 `system/ commands/ configs/ logs/ results/ videos/ registry/ hashes/ gates/ patches/ tmp/`。脚本拒绝把 run 目录放进 upstream，避免污染官方副本。
+
+### 2. 锁定上游
+
+```bash
+git clone https://github.com/PKU-Alignment/VLA-Arena.git "$H2_UPSTREAM"
+git -C "$H2_UPSTREAM" switch --detach babe582ebffc82b979b77964a7e56417d02f63a4
+git -C "$H2_UPSTREAM" status --short
+python3 "$H2_TUTORIAL/scripts/validate_upstream.py" \
+  "$H2_UPSTREAM" babe582ebffc82b979b77964a7e56417d02f63a4
+```
+
+`status --short` 必须为空。不在 upstream 内改 YAML、evaluator 或 BDDL；H2 差异只位于教程 wrapper、渲染后配置和 `patches/`。
+
+### 3. 隔离环境（先 SmolVLA）
+
+```bash
+export UV_PROJECT_ENVIRONMENT="$H2_VENVS/smolvla"
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c1-smolvla-sync" -- \
+  uv sync --project "$H2_UPSTREAM/envs/smolvla" --frozen
+```
+
+OpenVLA 只在检查点 C5 触发时执行，并改用 `UV_PROJECT_ENVIRONMENT="$H2_VENVS/openvla"`。不使用 `sudo pip`、system `pip`或 conda base。
+
+### 4. 下载与校验必需权重
+
+```bash
+export UV_PROJECT_ENVIRONMENT="$H2_VENVS/smolvla"
+uv run --project "$H2_UPSTREAM/envs/smolvla" --frozen \
+  python "$H2_TUTORIAL/scripts/h2_fetch_assets.py" \
+  --lock "$H2_TUTORIAL/assets/h2_assets.lock" \
+  --asset smolvla --asset-root "$H2_ASSETS" --acknowledge-download
+```
+
+返回 receipt 必须记录 revision，并通过大文件 SHA-256。OpenVLA 同理但只在 C5 执行。训练数据条目标为 `not_required` 且脚本拒绝下载。
+
+### 5. 渲染运行配置
+
+```bash
+python3 "$H2_TUTORIAL/scripts/h2_prepare_run.py" render-configs \
+  --run-root "$H2_RUN" --upstream "$H2_UPSTREAM" \
+  --asset-root "$H2_ASSETS" --templates "$H2_TUTORIAL/h2_preflight/configs"
+```
+
+配置只写到 `$H2_RUN/configs`，模型路径指向已校验的本地 snapshot，W&B/replacements/扰动全关闭。
+
+### 6. 按检查点执行
+
+严格按 `checkpoint_matrix.md` 的 C0→C7 执行，不跳级。单 episode 必须通过项目 wrapper：官方 evaluator 的 `num_trials_per_task: 1` 会跑 5 个 task，不等于单 episode。
+
+```bash
+export UV_PROJECT_ENVIRONMENT="$H2_VENVS/smolvla"
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c3-smolvla-one" -- \
+  uv run --project "$H2_UPSTREAM/envs/smolvla" --frozen \
+  python "$H2_TUTORIAL/scripts/h2_one_episode.py" \
+  --model smolvla --task-id 0 \
+  --config "$H2_RUN/configs/smolvla_l0_t1.yaml" \
+  --upstream "$H2_UPSTREAM" --run-root "$H2_RUN"
+```
+
+### 7. 断点恢复、完成与清理
+
+- 恢复：对照 `$H2_RUN/checkpoint_state.json`，只重跑最后一个非 `passed` 检查点；不删失败日志。
+- 完成：运行 `h2_finalize_evidence.py`，生成 SHA-256 manifest，检查 registry 路径存在。
+- 清理：首选关停/销毁云实例。仅在已备份 `runs/$H2_RUN_ID` 后删除可再下载的 `cache/`、`venvs/`和 `assets/models/`；不递归删除 `$H2_ROOT`、`runs/`或 upstream。
+
+## 五、证据口径
+
+- `当前实测`：H2 脚本语法、干跑、目录初始化、配置渲染、fixture 和安全扫描在 Mac 通过。
+- `静态核验`：上游 commit、CLI、evaluator 接口、模型 revision/文件大小已核。
+- `估计—未运行`：所有 GPU 小时、显存、episode 墙钟、下载用时和磁盘增量。
+- `等待授权`：真实实例登录/付费、实例上的模型下载与任何凭据使用。
+
+不得把 `--dry-run`、fixture、Mac 探针或静态 AST 检查写成 GPU 结果。

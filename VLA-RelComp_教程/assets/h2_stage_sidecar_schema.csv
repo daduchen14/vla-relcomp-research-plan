@@ -1,0 +1,1 @@
+run_id,episode_id,step,timestamp_utc,target_object,reference_object,contact_raw,target_z_raw,support_z_raw,target_reference_distance_raw,official_goal_success,done,definition_status,definition_version,contact_threshold,lift_threshold,distance_threshold,source_path,notes

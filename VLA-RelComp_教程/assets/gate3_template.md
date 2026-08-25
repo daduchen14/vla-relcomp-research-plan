@@ -1,5 +1,7 @@
 # Gate 3（D14）
 
+H2 运行对应：C6 的只读状态旁路与 C7 的最小 pair/oracle pilot 均须有真实证据。阈值未校准、pair 未验可达或只有 fixture 时，不得勾选“通过”。
+
 ## 冻结证据
 
 - repo/model/data revision：

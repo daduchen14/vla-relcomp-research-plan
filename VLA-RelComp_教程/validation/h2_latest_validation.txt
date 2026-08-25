@@ -1,0 +1,20 @@
+UTC 2026-08-25T08:15:04Z
+PASS py_compile tutorial_scripts=17
+PASS H1 upstream commit=babe582ebffc82b979b77964a7e56417d02f63a4 critical_paths=9 bddl/init=5,5,5
+PASS H1 Day0-Day14 structural requirements
+PASS H1 original_smoke_yaml=3
+PASS H1 BDDL manifest rows=15 levels=5,5,5
+PASS H1 stage fixture=2,3,5,6 synthetic
+PASS H1 registry fixture rows=5 synthetic
+PASS H2 required_files=18 paths_credentials=clean asset_lock_rows=9
+PASS H2 rendered_configs=t1:3,t5:3 t5_init_mode=episode_idx
+PASS H2 one_episode_interfaces=random,smolvla,openvla static_no_episode
+PASS H2 pilot_interfaces=random,smolvla,openvla expected_episodes_each=25 static_no_episode
+PASS H2 asset_plans=smolvla,openvla dry_run_no_download
+PASS H2 command_capture synthetic_fixture
+PASS H2 stage_sidecar synthetic_fixture uncalibrated
+PASS H2 pair_oracle fixture matched=2 recovery=1 damage=0
+PASS H2 finalize fixture_files=11 registry_rows=0 missing_paths=0
+PASS git_diff_check
+BOUNDARY no GPU, CUDA kernel, EGL context, MuJoCo episode, checkpoint load, model/data download, training, true success rate, VRAM/wall-clock result, pair reachability, oracle result, or Gate 1-3 decision
+NOTE original regression invocation first used obsolete parse_bddl positional arguments and exited 2; corrected --upstream-root/--output invocation immediately passed with 15 rows. No GPU/model process was involved.
