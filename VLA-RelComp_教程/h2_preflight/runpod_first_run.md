@@ -89,7 +89,23 @@ Host vla-relcomp-h2
 ssh vla-relcomp-h2 'uname -a && nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader'
 ```
 
-只有输出确认单张 A100 SXM 80 GB 后，才进入 H2 的 C0。连接失败时保留控制台实例信息和错误文本，不反复重建付费实例。
+只有输出确认单张 A100 SXM 80 GB 后，才传输教程。连接失败时保留控制台实例信息和错误文本，不反复重建付费实例。
+
+先在本机做一次无网络 dry-run，再写入全新的版本目录；脚本拒绝覆盖已有目录，并用第二次 rsync checksum dry-run 核对远端副本：
+
+```bash
+export H2_LOCAL_TUTORIAL="/absolute/local/path/to/VLA-RelComp_教程"
+python3 "$H2_LOCAL_TUTORIAL/scripts/h2_transfer_to_host.py" \
+  --host vla-relcomp-h2 --package-id h2-20260825 \
+  --tutorial-root "$H2_LOCAL_TUTORIAL"
+# dry-run 的 host、文件数、字节数和目标目录正确后：
+python3 "$H2_LOCAL_TUTORIAL/scripts/h2_transfer_to_host.py" \
+  --host vla-relcomp-h2 --package-id h2-20260825 \
+  --tutorial-root "$H2_LOCAL_TUTORIAL" \
+  --execute --acknowledge-remote-write
+```
+
+这一步不需要 GitHub token；SSH 私钥仍只由本机 SSH agent/config 使用。若 package id 已存在，换一个新 id，不删除或覆盖旧包。
 
 ## 六、RunPod 上的 H2 根目录
 
@@ -97,7 +113,8 @@ RunPod Volume Disk 默认挂载在 `/workspace`，因此覆盖通用 README 中�
 
 ```bash
 export H2_ROOT=/workspace/vla-relcomp-h2
-export H2_TUTORIAL="$H2_ROOT/tutorial/VLA-RelComp_教程"
+export H2_PACKAGE_ID=h2-20260825
+export H2_TUTORIAL="$H2_ROOT/tutorial/$H2_PACKAGE_ID/VLA-RelComp_教程"
 export H2_UPSTREAM="$H2_ROOT/upstream/VLA-Arena"
 export H2_ASSETS="$H2_ROOT/assets"
 export H2_CACHE="$H2_ROOT/cache"
@@ -106,7 +123,70 @@ export H2_RUN_ID="h2-$(date -u +%Y%m%dT%H%M%SZ)"
 export H2_RUN="$H2_ROOT/runs/$H2_RUN_ID"
 ```
 
-随后严格回到 `h2_preflight/README.md`，从“0. 只读系统探针”开始执行，不跳过 C0、不提前下载 OpenVLA、不先跑完整 pilot。
+先做一次**硬件保留探针**。它只决定这台付费实例的 Linux/架构、A100 显存、驱动 CUDA 和 300 GB 磁盘是否合格；`uv`、ffmpeg、Git 或 EGL 尚未安装不会误判为硬件失败：
+
+```bash
+mkdir -p "$H2_ROOT/preflight"
+python3 "$H2_TUTORIAL/scripts/h2_system_probe.py" \
+  --mode linux-gpu-host --disk-root "$H2_ROOT" \
+  --output "$H2_ROOT/preflight/host_probe.json"
+```
+
+退出非零就立即保留输出并停在 C0 之前，不花时间装依赖。退出 0 后初始化 run，并将正式 C0 设为 running：
+
+```bash
+python3 "$H2_TUTORIAL/scripts/h2_prepare_run.py" init \
+  --run-root "$H2_RUN" --upstream "$H2_UPSTREAM"
+python3 "$H2_TUTORIAL/scripts/h2_checkpoint_state.py" \
+  --state "$H2_RUN/checkpoint_state.json" --checkpoint C0 --status running
+python3 "$H2_TUTORIAL/scripts/h2_system_probe.py" \
+  --mode linux-gpu-host --disk-root "$H2_ROOT" \
+  --output "$H2_RUN/system/host_probe.json"
+```
+
+官方镜像是否已带齐工具必须实测，不能假定。缺少项在这个临时 Pod 内最小补装，并把每条命令留收据：
+
+```bash
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c0-apt-update" -- apt-get update
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c0-apt-install" -- \
+  apt-get install -y git curl ffmpeg libegl1 libgl1 libglfw3
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c0-uv-download" -- \
+  curl --proto '=https' --tlsv1.2 -LsSf \
+  https://astral.sh/uv/0.10.8/install.sh \
+  -o "$H2_RUN/tmp/uv-install-0.10.8.sh"
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c0-uv-verify" -- \
+  python3 "$H2_TUTORIAL/scripts/h2_verify_file.py" \
+  --root "$H2_RUN" --path "$H2_RUN/tmp/uv-install-0.10.8.sh" \
+  --bytes 68278 \
+  --sha256 eae5e1dae89cd0b74d357f549ccd6faa94b2ad6c1d89d78972a625655a4556ae
+mkdir -p "$H2_ROOT/tools/bin"
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c0-uv-install" -- \
+  env UV_UNMANAGED_INSTALL="$H2_ROOT/tools/bin" \
+  sh "$H2_RUN/tmp/uv-install-0.10.8.sh"
+export PATH="$H2_ROOT/tools/bin:$PATH"
+```
+
+`assets/h2_tooling.lock` 固定安装脚本的版本、URL、字节数和 SHA-256；校验不通过绝不执行。`UV_UNMANAGED_INSTALL` 避免修改 shell profile，并禁用自更新。安装后运行完整 runtime 探针，并只在 JSON 显示 `recommended_80gb_300gb=true` 时结束 C0：
+
+```bash
+python3 "$H2_TUTORIAL/scripts/h2_system_probe.py" \
+  --mode linux-gpu --disk-root "$H2_ROOT" \
+  --output "$H2_RUN/system/probe.json"
+python3 "$H2_TUTORIAL/scripts/h2_checkpoint_state.py" \
+  --state "$H2_RUN/checkpoint_state.json" --checkpoint C0 --status passed \
+  --evidence system/host_probe.json \
+  --evidence commands/c0-apt-update --evidence commands/c0-apt-install \
+  --evidence commands/c0-uv-download --evidence commands/c0-uv-verify \
+  --evidence commands/c0-uv-install --evidence system/probe.json \
+  --note "A100 80GB/300GB hardware and Git/uv/ffmpeg/EGL runtime checked"
+```
+
+随后严格回到 `h2_preflight/README.md`，从 C1“锁定上游”继续执行；不重复 C0、不提前下载 OpenVLA、不先跑完整 pilot。任一步失败都以实际已存在的证据将 C0 标为 `failed`，再结束实例或新建 retry run，不能把“可补装工具缺失”写成硬件不合格。
 
 ## 七、首轮停止与替代规则
 

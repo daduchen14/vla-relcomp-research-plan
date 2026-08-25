@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import csv
+import hashlib
 import json
 import re
 import subprocess
@@ -19,8 +20,8 @@ REQUIRED = (
     "h2_preflight/README.md", "h2_preflight/runpod_first_run.md", "h2_preflight/checkpoint_matrix.md", "h2_preflight/security_version_audit.md",
     "h2_preflight/evidence_and_resume.md", "h2_preflight/configs/random_l0.yaml",
     "h2_preflight/configs/smolvla_l0.yaml", "h2_preflight/configs/openvla_l0.yaml",
-    "assets/h2_assets.lock", "assets/h2_stage_sidecar_schema.csv",
-    "scripts/h2_system_probe.py", "scripts/h2_prepare_run.py", "scripts/h2_checkpoint_state.py", "scripts/h2_capture_command.py",
+    "assets/h2_assets.lock", "assets/h2_tooling.lock", "assets/h2_stage_sidecar_schema.csv",
+    "scripts/h2_system_probe.py", "scripts/h2_prepare_run.py", "scripts/h2_checkpoint_state.py", "scripts/h2_transfer_to_host.py", "scripts/h2_verify_file.py", "scripts/h2_capture_command.py",
     "scripts/h2_fetch_assets.py", "scripts/h2_one_episode.py", "scripts/h2_finalize_evidence.py",
     "scripts/h2_stage_sidecar.py", "scripts/h2_pair_oracle_audit.py",
     "scripts/h2_pilot.py", "scripts/h2_c7_runner.py", "assets/h2_hf_metadata_fixture.json",
@@ -83,6 +84,12 @@ def main() -> int:
             raise AssertionError(f"model asset crosses boundary: {repo}")
     checks.append({"check": "asset_lock_and_20gib_gate", "status": "passed", "rows": len(lock_rows)})
 
+    tooling_rows = [line.split("|") for line in (root / "assets/h2_tooling.lock").read_text().splitlines() if line and not line.startswith("#")]
+    expected_tooling = [["uv-installer", "0.10.8", "https://astral.sh/uv/0.10.8/install.sh", "68278", "eae5e1dae89cd0b74d357f549ccd6faa94b2ad6c1d89d78972a625655a4556ae"]]
+    if tooling_rows != expected_tooling:
+        raise AssertionError("H2 tooling lock changed")
+    checks.append({"check": "tooling_lock", "status": "passed", "tools": ["uv-installer@0.10.8"]})
+
     head = command(["git", "-C", str(upstream), "rev-parse", "HEAD"])["stdout"]
     if head != EXPECTED_COMMIT:
         raise AssertionError(f"upstream mismatch: {head}")
@@ -109,6 +116,11 @@ def main() -> int:
         state_path = run_root / "checkpoint_state.json"
         c0_evidence = run_root / "system" / "state-fixture.json"
         c0_evidence.write_text("{}\n")
+        c0_digest = hashlib.sha256(c0_evidence.read_bytes()).hexdigest()
+        command([sys.executable, str(root / "scripts/h2_verify_file.py"), "--root", str(run_root), "--path", str(c0_evidence), "--bytes", str(c0_evidence.stat().st_size), "--sha256", c0_digest])
+        command([sys.executable, str(root / "scripts/h2_verify_file.py"), "--root", str(run_root), "--path", str(c0_evidence), "--bytes", str(c0_evidence.stat().st_size + 1), "--sha256", c0_digest], expect=2)
+        command([sys.executable, str(root / "scripts/h2_verify_file.py"), "--root", str(run_root / "system"), "--path", str(root / "README.md"), "--bytes", "0", "--sha256", "0" * 64], expect=2)
+        checks.append({"check": "locked_file_verifier_fixture", "status": "passed", "accepted": ["exact bytes and sha256"], "rejected": ["size mismatch", "path escape"], "evidence_label": "fixture_only"})
         command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C0", "--status", "running", "--evidence", "system/state-fixture.json"])
         command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C0", "--status", "passed", "--evidence", "system/state-fixture.json", "--note", "fixture success conditions checked"])
         command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C0", "--status", "running"], expect=2)
@@ -123,6 +135,13 @@ def main() -> int:
         if state_fixture["C0"]["status"] != "passed" or state_fixture["C1"]["status"] != "failed" or len(state_fixture["C1"]["history"]) != 2:
             raise AssertionError("checkpoint state transitions were not persisted")
         checks.append({"check": "checkpoint_state_machine_fixture", "status": "passed", "accepted": ["C0 pending->running->passed", "C1 pending->running->failed"], "rejected": ["terminal restart", "predecessor bypass", "pending direct pass", "terminal with missing planned evidence"], "evidence_label": "fixture_only"})
+        transfer = command([sys.executable, str(root / "scripts/h2_transfer_to_host.py"), "--host", "vla-relcomp-h2", "--package-id", "fixture-package", "--tutorial-root", str(root)])
+        transfer_payload = json.loads(str(transfer["stdout"]))
+        if transfer_payload["status"] != "dry_run_no_remote_write" or transfer_payload["remote_destination"] != "/workspace/vla-relcomp-h2/tutorial/fixture-package/VLA-RelComp_教程":
+            raise AssertionError("transfer dry-run plan changed")
+        command([sys.executable, str(root / "scripts/h2_transfer_to_host.py"), "--host", "-oProxyCommand=bad", "--package-id", "fixture-package", "--tutorial-root", str(root)], expect=2)
+        command([sys.executable, str(root / "scripts/h2_transfer_to_host.py"), "--host", "vla-relcomp-h2", "--package-id", "fixture-package", "--tutorial-root", str(root), "--execute"], expect=2)
+        checks.append({"check": "ssh_transfer_handoff_fixture", "status": "passed", "accepted": ["new versioned destination dry-run"], "rejected": ["unsafe host option", "execute without acknowledgement"], "evidence_label": "fixture_only_no_ssh"})
         command([sys.executable, str(root / "scripts/h2_prepare_run.py"), "render-configs", "--run-root", str(run_root), "--upstream", str(upstream), "--asset-root", str(assets), "--templates", str(templates)])
         rendered = sorted((run_root / "configs").glob("*.yaml"))
         if len(rendered) != 3 or any("__H2_" in path.read_text() for path in rendered):
@@ -329,6 +348,10 @@ def main() -> int:
         checks.append({"check": "pair_oracle_and_c7_runner_fixtures", "status": "passed", "matched": 4, "recovery": 2, "seeds": [7, 11], "rejected": ["unregistered_row", "missing_row", "duplicate_row", "changed_factor_mismatch", "manifest_path_traversal", "derived_path_escape"], "evidence_label": "synthetic_fixture_no_pair_or_episode_claim"})
 
         command([sys.executable, str(root / "scripts/h2_system_probe.py"), "--mode", "static", "--disk-root", str(temp), "--output", str(run_root / "system" / "mac_static_probe.json")])
+        probe_payload = json.loads((run_root / "system" / "mac_static_probe.json").read_text())
+        required_qualification = {"recommended_hardware_80gb_300gb", "backup_hardware_48gb_220gb", "runtime_prerequisites_ready", "recommended_80gb_300gb", "backup_48gb_220gb", "linux_gpu_execution_eligible"}
+        if set(probe_payload["qualification"]) != required_qualification or "linux-gpu-host" not in (root / "scripts/h2_system_probe.py").read_text():
+            raise AssertionError("two-stage host/runtime probe contract changed")
         final = command([sys.executable, str(root / "scripts/h2_finalize_evidence.py"), "--run-root", str(run_root)])
         final_payload = json.loads(str(final["stdout"]))
         checks.append({

@@ -96,7 +96,7 @@ def write_json(path: Path | None, payload: dict[str, object]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=("static", "linux-gpu"), default="static")
+    parser.add_argument("--mode", choices=("static", "linux-gpu-host", "linux-gpu"), default="static")
     parser.add_argument("--disk-root", type=Path, default=Path.cwd())
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -123,8 +123,12 @@ def main() -> int:
         "ffmpeg": tool_probe("ffmpeg", ["-version"]),
     }
     cuda_supported = isinstance(nvidia.get("cuda_version_reported_by_driver"), float) and nvidia["cuda_version_reported_by_driver"] >= 11.8
-    backup_ok = linux and ubuntu_supported and x86_64 and bool(nvidia["available"]) and cuda_supported and max_vram_mb >= 48_000 and disk.free >= 220 * 10**9 and bool(egl) and all(item["available"] for item in tools.values())
-    recommended_ok = backup_ok and max_vram_mb >= 79_000 and disk.free >= 300 * 10**9
+    base_hardware = linux and ubuntu_supported and x86_64 and bool(nvidia["available"]) and cuda_supported
+    backup_hardware = base_hardware and max_vram_mb >= 48_000 and disk.free >= 220 * 10**9
+    recommended_hardware = base_hardware and max_vram_mb >= 79_000 and disk.free >= 300 * 10**9
+    runtime_prerequisites = bool(egl) and all(item["available"] for item in tools.values())
+    backup_ok = backup_hardware and runtime_prerequisites
+    recommended_ok = recommended_hardware and runtime_prerequisites
     payload: dict[str, object] = {
         "evidence_label": "current_host_read_only_probe",
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -136,6 +140,9 @@ def main() -> int:
         "egl": {"library": egl, "mujoco_gl_expected": "egl", "pyopengl_platform_expected": "egl"},
         "tools": tools,
         "qualification": {
+            "recommended_hardware_80gb_300gb": recommended_hardware,
+            "backup_hardware_48gb_220gb": backup_hardware,
+            "runtime_prerequisites_ready": runtime_prerequisites,
             "recommended_80gb_300gb": recommended_ok,
             "backup_48gb_220gb": backup_ok,
             "linux_gpu_execution_eligible": backup_ok,
@@ -143,6 +150,8 @@ def main() -> int:
         "not_tested": ["CUDA kernel", "MuJoCo context creation", "VLA checkpoint load", "episode", "VRAM peak"],
     }
     write_json(args.output, payload)
+    if args.mode == "linux-gpu-host" and not recommended_hardware:
+        return 2
     if args.mode == "linux-gpu" and not backup_ok:
         return 2
     return 0

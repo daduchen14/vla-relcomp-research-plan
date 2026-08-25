@@ -4,7 +4,7 @@
     {
       "check": "required_files",
       "status": "passed",
-      "count": 22
+      "count": 25
     },
     {
       "check": "paths_and_credentials",
@@ -14,6 +14,13 @@
       "check": "asset_lock_and_20gib_gate",
       "status": "passed",
       "rows": 24
+    },
+    {
+      "check": "tooling_lock",
+      "status": "passed",
+      "tools": [
+        "uv-installer@0.10.8"
+      ]
     },
     {
       "check": "upstream_commit",
@@ -30,6 +37,18 @@
       ]
     },
     {
+      "check": "locked_file_verifier_fixture",
+      "status": "passed",
+      "accepted": [
+        "exact bytes and sha256"
+      ],
+      "rejected": [
+        "size mismatch",
+        "path escape"
+      ],
+      "evidence_label": "fixture_only"
+    },
+    {
       "check": "checkpoint_state_machine_fixture",
       "status": "passed",
       "accepted": [
@@ -43,6 +62,18 @@
         "terminal with missing planned evidence"
       ],
       "evidence_label": "fixture_only"
+    },
+    {
+      "check": "ssh_transfer_handoff_fixture",
+      "status": "passed",
+      "accepted": [
+        "new versioned destination dry-run"
+      ],
+      "rejected": [
+        "unsafe host option",
+        "execute without acknowledgement"
+      ],
+      "evidence_label": "fixture_only_no_ssh"
     },
     {
       "check": "init_and_render_fixture",
