@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+validation/generated/
+validation/*.tmp
+*.mp4
+*.mov
+models/
+datasets/
+cache/

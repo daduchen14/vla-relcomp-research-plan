@@ -1,0 +1,1 @@
+pair_id,condition,level,task_id,seed,init_state_index,changed_factor,target_object,reference_object,relation,instruction,goal_verified,reachable_verified,leakage_check,status,notes

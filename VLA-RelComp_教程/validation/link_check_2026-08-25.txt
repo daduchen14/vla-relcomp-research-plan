@@ -1,0 +1,13 @@
+200 https://github.com/PKU-Alignment/VLA-Arena/tree/babe582ebffc82b979b77964a7e56417d02f63a4
+200 https://arxiv.org/abs/2512.22539v4
+200 https://huggingface.co/VLA-Arena/smolvla-vla-arena
+200 https://huggingface.co/VLA-Arena/openvla-7b-finetuned-vla-arena
+200 https://huggingface.co/datasets/VLA-Arena/VLA_Arena_L0_L_lerobot_smolvla/tree/main
+200 https://docs.pytorch.org/tutorials/beginner/basics/tensorqs_tutorial.html
+200 https://docs.pytorch.org/docs/2.9/generated/torch.autograd.grad_mode.inference_mode.html
+200 https://arxiv.org/abs/1706.03762
+200 https://arxiv.org/abs/2010.11929
+200 https://huggingface.co/docs/lerobot/il_robots
+200 https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm
+200 https://www.statsmodels.org/stable/generated/statsmodels.stats.contingency_tables.mcnemar.html
+200 https://git-scm.com/book/en/v2/Getting-Started-What-is-Git%3F

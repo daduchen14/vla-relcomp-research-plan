@@ -1,0 +1,23 @@
+UTC 2026-08-25T06:03:04Z
+PASS commit=babe582ebffc82b979b77964a7e56417d02f63a4
+PASS critical_paths=9
+PASS bddl_by_level=5,5,5 init_by_level=5,5,5
+PASS suite_registry_and_success_path
+PASS: Day 0–14 structural requirements found; this does not replace factual/manual review.
+YAML PASS 方向筛选/VLA-RelComp_教程/configs/openvla_l0_smoke.yaml Hash
+YAML PASS 方向筛选/VLA-RelComp_教程/configs/random_l0_smoke.yaml Hash
+YAML PASS 方向筛选/VLA-RelComp_教程/configs/smolvla_l0_smoke.yaml Hash
+wrote 15 tasks to 方向筛选/VLA-RelComp_教程/validation/generated/task_manifest_recheck.csv
+levels: {0: 5, 1: 5, 2: 5}
+{
+  "target_contact_step": 2,
+  "target_lift_step": 3,
+  "reference_approach_step": 5,
+  "relation_satisfied_step": 6,
+  "source": "synthetic fixture—not simulator state"
+}
+validated_rows=5
+level=0 success=1/1 rate=1.000 wilson95=[0.207,1.000]
+level=1 success=1/2 rate=0.500 wilson95=[0.095,0.905]
+level=2 success=0/2 rate=0.000 wilson95=[0.000,0.658]
+NOTE: fixture inputs demonstrate analysis shape; they are not VLA-Arena results.

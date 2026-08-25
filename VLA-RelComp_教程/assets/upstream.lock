@@ -1,0 +1,10 @@
+repository=https://github.com/PKU-Alignment/VLA-Arena.git
+commit=babe582ebffc82b979b77964a7e56417d02f63a4
+verified_at=2026-08-25
+paper=https://arxiv.org/abs/2512.22539v4
+paper_version=v4
+paper_revised=2026-08-07
+suite_display_name=PrepositionCombinations
+suite_registry_name=extrapolation_preposition_combinations
+task_count_per_level=5
+levels=0,1,2
