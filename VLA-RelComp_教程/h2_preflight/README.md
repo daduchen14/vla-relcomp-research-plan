@@ -2,6 +2,8 @@
 
 > 状态：`H2.1 Mac 免费实测 + 锁定源码静态核验`。本包没有执行 VLA-Arena episode、没有加载 checkpoint、没有产生 GPU 性能或 Gate 1–3 结论。
 
+RunPod 首次实跑的唯一推荐配置、30 美元费用闸门、SSH 交接与停止条件见 [`runpod_first_run.md`](runpod_first_run.md)。它是“已选平台、未购买、未运行”的执行页；控制台价格或规格不符时不得静默替换。
+
 ## 一、唯一目标与边界
 
 本包把 D0—D14 的真实参考运行准备到：拿到一台 Linux/NVIDIA 实例后，可按检查点复制执行，且每步有版本、命令、时间、退出码、GPU 快照、日志、结果和哈希可追溯。唯一 suite 仍是 `extrapolation_preposition_combinations`，不训练、不扩第二 suite，不提前设计 D15 以后修复。
@@ -29,7 +31,7 @@
 
 ## 三、目录与一次性变量
 
-以大容量挂载目录为根，不要把 cache 放到系统盘：
+以大容量挂载目录为根，不要把 cache 放到系统盘。下列 `/mnt` 是通用示例；RunPod 必须按 `runpod_first_run.md` 改为 `/workspace/vla-relcomp-h2`：
 
 ```bash
 export H2_ROOT=/mnt/vla-relcomp-h2

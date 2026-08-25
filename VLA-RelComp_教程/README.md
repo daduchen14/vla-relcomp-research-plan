@@ -33,4 +33,4 @@ Gate 1（D4）验证单 episode；Gate 2（D8）选择可分析模型；Gate 3�
 
 ## 下一阶段
 
-Linux/NVIDIA 执行前的 H2/H2.1 包位于 `h2_preflight/`：包含系统/磁盘规格、C0–C7 检查点、版本与下载前实际资产闸门、隔离环境、EGL、单 episode/pilot/C7 wrapper、逐 episode 视频、证据封存与断点恢复。当前只完成 Mac 免费实测和锁定源码静态核验；获得云平台/登录/预算批准后才能执行真实 D0—D14 参考运行。
+Linux/NVIDIA 执行前的 H2/H2.1 包位于 `h2_preflight/`：包含系统/磁盘规格、C0–C7 检查点、版本与下载前实际资产闸门、隔离环境、EGL、单 episode/pilot/C7 wrapper、逐 episode 视频、证据封存与断点恢复。`h2_preflight/runpod_first_run.md` 已固定首次 RunPod 配置、16 GPU·h/30 美元费用闸门、SSH 交接和停止条件。当前只完成 Mac 免费实测、锁定源码静态核验和云端执行设计；获得账号/最终付费批准后才能执行真实 D0—D14 参考运行。
