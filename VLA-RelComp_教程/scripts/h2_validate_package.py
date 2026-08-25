@@ -16,11 +16,11 @@ from pathlib import Path
 
 EXPECTED_COMMIT = "babe582ebffc82b979b77964a7e56417d02f63a4"
 REQUIRED = (
-    "h2_preflight/README.md", "h2_preflight/checkpoint_matrix.md", "h2_preflight/security_version_audit.md",
+    "h2_preflight/README.md", "h2_preflight/runpod_first_run.md", "h2_preflight/checkpoint_matrix.md", "h2_preflight/security_version_audit.md",
     "h2_preflight/evidence_and_resume.md", "h2_preflight/configs/random_l0.yaml",
     "h2_preflight/configs/smolvla_l0.yaml", "h2_preflight/configs/openvla_l0.yaml",
     "assets/h2_assets.lock", "assets/h2_stage_sidecar_schema.csv",
-    "scripts/h2_system_probe.py", "scripts/h2_prepare_run.py", "scripts/h2_capture_command.py",
+    "scripts/h2_system_probe.py", "scripts/h2_prepare_run.py", "scripts/h2_checkpoint_state.py", "scripts/h2_capture_command.py",
     "scripts/h2_fetch_assets.py", "scripts/h2_one_episode.py", "scripts/h2_finalize_evidence.py",
     "scripts/h2_stage_sidecar.py", "scripts/h2_pair_oracle_audit.py",
     "scripts/h2_pilot.py", "scripts/h2_c7_runner.py", "assets/h2_hf_metadata_fixture.json",
@@ -106,6 +106,23 @@ def main() -> int:
         assets = temp / "assets"
         templates = root / "h2_preflight" / "configs"
         command([sys.executable, str(root / "scripts/h2_prepare_run.py"), "init", "--run-root", str(run_root), "--upstream", str(upstream)])
+        state_path = run_root / "checkpoint_state.json"
+        c0_evidence = run_root / "system" / "state-fixture.json"
+        c0_evidence.write_text("{}\n")
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C0", "--status", "running", "--evidence", "system/state-fixture.json"])
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C0", "--status", "passed", "--evidence", "system/state-fixture.json", "--note", "fixture success conditions checked"])
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C0", "--status", "running"], expect=2)
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C2", "--status", "running"], expect=2)
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C1", "--status", "passed", "--evidence", "system/state-fixture.json", "--note", "illegal direct pass"], expect=2)
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C1", "--status", "running", "--evidence", "commands/c1-planned"])
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C1", "--status", "failed", "--evidence", "system/state-fixture.json", "--note", "fixture failure", "--failure-class", "dependency", "--elapsed-minutes", "1.5", "--retry-run", "retry-01"], expect=2)
+        (run_root / "commands" / "c1-planned").mkdir()
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C1", "--status", "failed", "--evidence", "system/state-fixture.json", "--note", "fixture failure", "--failure-class", "dependency", "--elapsed-minutes", "1.5", "--retry-run", "retry-01"])
+        command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(state_path), "--checkpoint", "C1", "--status", "running"], expect=2)
+        state_fixture = json.loads(state_path.read_text())
+        if state_fixture["C0"]["status"] != "passed" or state_fixture["C1"]["status"] != "failed" or len(state_fixture["C1"]["history"]) != 2:
+            raise AssertionError("checkpoint state transitions were not persisted")
+        checks.append({"check": "checkpoint_state_machine_fixture", "status": "passed", "accepted": ["C0 pending->running->passed", "C1 pending->running->failed"], "rejected": ["terminal restart", "predecessor bypass", "pending direct pass", "terminal with missing planned evidence"], "evidence_label": "fixture_only"})
         command([sys.executable, str(root / "scripts/h2_prepare_run.py"), "render-configs", "--run-root", str(run_root), "--upstream", str(upstream), "--asset-root", str(assets), "--templates", str(templates)])
         rendered = sorted((run_root / "configs").glob("*.yaml"))
         if len(rendered) != 3 or any("__H2_" in path.read_text() for path in rendered):

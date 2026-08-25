@@ -29,6 +29,8 @@ runs/<run_id>/
 4. 条件不触发（例如 Smol 已过 Gate 2，不需 OpenVLA）：设 `skipped`，写冻结规则与证据，不写 `passed`。
 5. 继续运行前先用 `h2_finalize_evidence.py` 检查已有文件。不再跑 `passed`，不覆盖 `failed`。
 
+以上转换必须通过 `scripts/h2_checkpoint_state.py`，不直接编辑 JSON。终态转换至少绑定一个 run 根目录内已经存在的证据路径，并用 `--note` 写出刚刚人工核对的成功/失败条件；`failed` 还必须写 `--failure-class`。脚本强制前置 Gate、C5-only skip 和终态不可逆，失败重试必须另建 run。
+
 ## episode 记录的两层口径
 
 - 主层：`success` 只来自锁定环境 official goal success。

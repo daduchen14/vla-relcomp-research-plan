@@ -4,7 +4,7 @@
     {
       "check": "required_files",
       "status": "passed",
-      "count": 20
+      "count": 22
     },
     {
       "check": "paths_and_credentials",
@@ -28,6 +28,21 @@
         "random",
         "smolvla"
       ]
+    },
+    {
+      "check": "checkpoint_state_machine_fixture",
+      "status": "passed",
+      "accepted": [
+        "C0 pending->running->passed",
+        "C1 pending->running->failed"
+      ],
+      "rejected": [
+        "terminal restart",
+        "predecessor bypass",
+        "pending direct pass",
+        "terminal with missing planned evidence"
+      ],
+      "evidence_label": "fixture_only"
     },
     {
       "check": "init_and_render_fixture",
@@ -121,7 +136,7 @@
       "check": "static_probe_and_finalize_fixture",
       "status": "passed",
       "evidence_label": "current_mac_probe_plus_fixture",
-      "files": 29,
+      "files": 30,
       "registry_rows": 8,
       "missing": 0
     }

@@ -74,6 +74,20 @@ python3 "$H2_TUTORIAL/scripts/h2_prepare_run.py" init \
 
 证据树固定为 `system/ commands/ configs/ logs/ results/ videos/ registry/ hashes/ gates/ patches/ tmp/`。脚本拒绝把 run 目录放进 upstream，避免污染官方副本。
 
+每个检查点都用状态机开始和收尾，不手改 `checkpoint_state.json`。例如 C0：
+
+```bash
+python3 "$H2_TUTORIAL/scripts/h2_checkpoint_state.py" \
+  --state "$H2_RUN/checkpoint_state.json" --checkpoint C0 --status running \
+  --evidence system/probe.json
+# 系统探针退出 0 且人工核对成功条件后：
+python3 "$H2_TUTORIAL/scripts/h2_checkpoint_state.py" \
+  --state "$H2_RUN/checkpoint_state.json" --checkpoint C0 --status passed \
+  --evidence system/probe.json --note "C0 success conditions checked"
+```
+
+状态机拒绝跳级、`pending→passed`、非 C5 的 `skipped`、不存在或越界的终态证据，以及从 `passed/failed/skipped` 重开。失败必须以 `--failure-class` 结束当前 run，再新建 `retry-01`，不能覆盖原记录。
+
 ### 2. 锁定上游
 
 ```bash

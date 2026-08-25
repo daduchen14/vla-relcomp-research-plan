@@ -29,6 +29,7 @@
 | H2 Linux/NVIDIA 预检包 | 已验收 | C0–C7、资产/环境锁、脚本、证据、恢复、安全审计 | `validation/05_H2预检完成报告.md` |
 | H2.1 证据链修补 | 已验收 | 逐 episode 视频、吞异常 fail-closed、manifest 绑定、多 seed C7 runner、下载前元数据闸门 | `validation/05_H2预检完成报告.md` |
 | H2.2 云端创建与费用闸门 | 已验收（未购买） | 唯一平台/规格、30 美元上限、SSH 交接、库存与替代停止条件 | `h2_preflight/runpod_first_run.md` |
+| H2.3 检查点状态机 | 已验收 | C0→C7 合法转换、前置 Gate、终态证据、失败不可覆盖 | `validation/h2_static_validation.json` |
 
 ## 变更记录
 
@@ -44,6 +45,7 @@
 - H2 Linux/NVIDIA 预检：建立只读上游、隔离 uv 环境、固定 HF revision/大文件哈希、C0–C7 检查点、真单 episode wrapper、命令收据、状态 sidecar schema、断点恢复和证据封存。当前标记为 Mac 免费实测/静态核验，未运行 GPU、MuJoCo episode、checkpoint 或 Gate。
 - H2.1：修复 pilot 空 video_path 与 episode 审计 fail-open；C3/pilot/C7 统一捕获 evaluator 吞掉的 `Episode error:`；C7 以 pair_family/pair_id/condition 绑定 manifest，支持同一 manifest 多 seed 并新增可执行 language-oracle runner；下载前用官方 metadata 核实际 snapshot 字节和完整性。fixture/static 通过，不是 GPU 结果。
 - H2.2：将首台真实运行固定为 RunPod 按需 `1×A100 SXM 80 GB`、官方 Ubuntu 22.04/CUDA 11.8 PyTorch 模板、50 GB container + 300 GB `/workspace` volume、Full SSH；依据 2026-08-25 官方价格建立 16 GPU·h/30 美元硬上限与不自动替换规则。未登录、未充值、未购买、未运行。
+- H2.3：增加 fail-closed 检查点状态机，消除云上人工编辑 `checkpoint_state.json`、跳级或覆盖失败证据的风险；锁定官方 commit 的全包回归通过 22 项必需文件与 16 组检查，未下载模型、未运行 GPU/episode。
 
 ## 当前下一步
 
