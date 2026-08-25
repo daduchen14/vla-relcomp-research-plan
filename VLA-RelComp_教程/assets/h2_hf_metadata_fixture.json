@@ -1,0 +1,43 @@
+{
+  "evidence_label": "official_huggingface_metadata_fixture_no_model_download",
+  "queried_date": "2026-08-25",
+  "source": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+  "assets": {
+    "smolvla": {
+      "repo": "VLA-Arena/smolvla-vla-arena",
+      "revision": "ef87aa3f97a4feaed69c93b9ed2014bba07acf8a",
+      "files": [
+        {"path": ".gitattributes", "size": 1519},
+        {"path": "README.md", "size": 4520},
+        {"path": "pretrained_model/config.json", "size": 2126},
+        {"path": "pretrained_model/model.safetensors", "size": 906713328, "sha256": "1b9b4c5a3d0159b33b104569facc6d4488253da8b3ee0e64b8a2597073314d1d"},
+        {"path": "pretrained_model/train_config.json", "size": 5582},
+        {"path": "training_state/optimizer_param_groups.json", "size": 8909},
+        {"path": "training_state/optimizer_state.safetensors", "size": 412659164, "sha256": "302733881e734fc990dda14005ddc749760b35806dbad0a63ce881f6e7f18033"},
+        {"path": "training_state/rng_state.safetensors", "size": 15708, "sha256": "120db8be4144fc4768adf52acd3dbc69d1610e91bdbcc6fd9c6033af0df10b04"},
+        {"path": "training_state/scheduler_state.json", "size": 217},
+        {"path": "training_state/training_step.json", "size": 22}
+      ]
+    },
+    "openvla": {
+      "repo": "VLA-Arena/openvla-7b-finetuned-vla-arena",
+      "revision": "779caf6517b5aeb9ed33882812a0c5f03f48c86e",
+      "files": [
+        {"path": ".gitattributes", "size": 1519}, {"path": "README.md", "size": 4056},
+        {"path": "added_tokens.json", "size": 21}, {"path": "config.json", "size": 60771},
+        {"path": "configuration_prismatic.py", "size": 5865}, {"path": "dataset_statistics.json", "size": 1932},
+        {"path": "generation_config.json", "size": 136},
+        {"path": "model-00001-of-00004.safetensors", "size": 4925122448, "sha256": "e1f7e3e7760992ec7ef339da3c02e8f90b306aa1b18dd98504fc2ff74636c701"},
+        {"path": "model-00002-of-00004.safetensors", "size": 4947392496, "sha256": "f8775248d07e8fa31fafb2190fbabb1bd8bd0e3be68846e5903ced8437e77ef1"},
+        {"path": "model-00003-of-00004.safetensors", "size": 4947417456, "sha256": "e23d69d13793cb4f3a0e90380b6cae05462a431ec9a97c57a2632f1870285e7a"},
+        {"path": "model-00004-of-00004.safetensors", "size": 262668432, "sha256": "b14b0bd9f4601f7e584e9eeb44e305e99abad7e9ef0f7baf9f4cd7825b29ffb5"},
+        {"path": "model.safetensors.index.json", "size": 94764}, {"path": "modeling_prismatic.py", "size": 26062},
+        {"path": "preprocessor_config.json", "size": 1650}, {"path": "processing_prismatic.py", "size": 12718},
+        {"path": "processor_config.json", "size": 130}, {"path": "special_tokens_map.json", "size": 552},
+        {"path": "tokenizer.json", "size": 1842976},
+        {"path": "tokenizer.model", "size": 499723, "sha256": "9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347"},
+        {"path": "tokenizer_config.json", "size": 1192}
+      ]
+    }
+  }
+}

@@ -14,6 +14,7 @@ runs/<run_id>/
 ├── configs/                       # 当次渲染后不再改的 YAML
 ├── logs/ results/ videos/         # evaluator 原始输出
 ├── registry/episode_registry.csv  # 每个 episode 一行
+├── registry/c7_episode_registry.csv # 只含 manifest 允许的 C7 行
 ├── registry/stage_sidecar.csv     # C6 原始行为量，阈值未校准
 ├── patches/                       # 项目 wrapper/patch 的副本与 hash
 ├── gates/                         # Gate 1–3 实例
@@ -45,16 +46,17 @@ runs/<run_id>/
 
 ## C7 最小 pilot 交接
 
-1. 使用现有 `pair_manifest_template.csv`，每 pair 两条、相同 seed/init/model/config，只有一个预登记变量。
+1. 使用 `pair_manifest_template.csv`；同一设计共用 `pair_family`，每个 seed 使用唯一 `pair_id` 且恰有两条 condition。每个 pair_id 共享 family/seed/init/model/config/changed_factor；同一 family 至少两个 seed。
 2. 先做 BDDL goal/instruction 同步和环境可达回放，然后才跑模型。
-3. 先 `none`，再仅一种 oracle；同时报 failure→success recovery 和 success→failure damage。
+3. runner 对每个 condition 先 `none`，再仅 `language_oracle`；全局 RNG、env seed、registry seed 同源，每次重建 env 并清 policy state；同时报 failure→success recovery 和 success→failure damage。
 4. Oracle 使用的 object id/真值框/goal 解析必须标 `privileged`，不进入最终方法。
 5. 至少 2 seeds 的重复证据齐全后才填 Gate 3；单个好看视频不过 Gate。
+6. C7 使用独立 registry；事后审计以 manifest 为唯一允许集合，未登记、缺行、重复、pair_family/changed_factor 等字段漂移或证据路径为空均失败。
 
 ## 云实例关闭前检查
 
 - `h2_finalize_evidence.py --run-root "$H2_RUN"` 退出 0；
-- `missing_registry_paths=0`；
+- `episode_registry.csv` 与存在时的 `c7_episode_registry.csv` 均被扫描，所有行的 video/log/result 非空且存在，`missing_registry_paths=0`；
 - `git -C "$H2_UPSTREAM" status --short` 为空；
 - 已将当次 `runs/$H2_RUN_ID` 下载/备份到持久存储；
 - 云控制台确认实例已停止计费。

@@ -4,7 +4,7 @@
     {
       "check": "required_files",
       "status": "passed",
-      "count": 18
+      "count": 20
     },
     {
       "check": "paths_and_credentials",
@@ -13,12 +13,21 @@
     {
       "check": "asset_lock_and_20gib_gate",
       "status": "passed",
-      "rows": 9
+      "rows": 24
     },
     {
       "check": "upstream_commit",
       "status": "passed",
       "commit": "babe582ebffc82b979b77964a7e56417d02f63a4"
+    },
+    {
+      "check": "locked_evaluator_return_contracts",
+      "status": "passed",
+      "models": [
+        "openvla",
+        "random",
+        "smolvla"
+      ]
     },
     {
       "check": "init_and_render_fixture",
@@ -44,7 +53,22 @@
     {
       "check": "asset_plans",
       "status": "passed",
-      "evidence_label": "dry_run_no_download"
+      "plans": {
+        "smolvla": {
+          "files": 3,
+          "logical_bytes": 906721036
+        },
+        "openvla": {
+          "files": 20,
+          "logical_bytes": 15085154899
+        }
+      },
+      "evidence_label": "official_metadata_fixture_dry_run_no_download"
+    },
+    {
+      "check": "asset_metadata_allowlist_fail_closed_fixture",
+      "status": "passed",
+      "evidence_label": "official_metadata_fixture_no_download"
     },
     {
       "check": "command_capture_fixture",
@@ -57,19 +81,48 @@
       "evidence_label": "synthetic_fixture_no_simulator"
     },
     {
-      "check": "pair_oracle_fixture",
+      "check": "episode_evidence_and_fail_closed_fixtures",
       "status": "passed",
-      "matched": 2,
-      "recovery": 1,
-      "damage": 0,
-      "evidence_label": "synthetic_fixture_no_pair_claim"
+      "paths": [
+        "C3",
+        "pilot",
+        "C7"
+      ],
+      "cases": [
+        "video_written",
+        "empty_frames",
+        "encoder_failure",
+        "action_calls_zero",
+        "swallowed_exception_after_partial_rollout",
+        "policy_state_reset"
+      ],
+      "evidence_label": "synthetic_fixture_and_locked_source_no_episode"
+    },
+    {
+      "check": "pair_oracle_and_c7_runner_fixtures",
+      "status": "passed",
+      "matched": 4,
+      "recovery": 2,
+      "seeds": [
+        7,
+        11
+      ],
+      "rejected": [
+        "unregistered_row",
+        "missing_row",
+        "duplicate_row",
+        "changed_factor_mismatch",
+        "manifest_path_traversal",
+        "derived_path_escape"
+      ],
+      "evidence_label": "synthetic_fixture_no_pair_or_episode_claim"
     },
     {
       "check": "static_probe_and_finalize_fixture",
       "status": "passed",
       "evidence_label": "current_mac_probe_plus_fixture",
-      "files": 11,
-      "registry_rows": 0,
+      "files": 29,
+      "registry_rows": 8,
       "missing": 0
     }
   ],

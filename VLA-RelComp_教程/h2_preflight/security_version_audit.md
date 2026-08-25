@@ -18,7 +18,10 @@
 
 1. `num_trials_per_task: 1` 会迭代 5 个 task，不是单 episode。H2 的 `h2_one_episode.py` 直接调用锁定 evaluator 的初始化、环境和 `run_episode` 函数，同时先核 commit 和函数签名。
 2. SmolVLA 模型仓库的可加载文件位于 `pretrained_model/`；项目配置渲染后指向该子目录，并固定 HF revision，而不依赖会移动的 Hub `main`。
-3. 官方 evaluator 只输出汇总 JSON；H2 `h2_pilot.py` 不改官方 success/action/env，只包装 `run_task/run_episode`收集逐 episode registry。多 trial 配置用确定性 `episode_idx` 初态选择，避免 `first` 重复同一 init。
+3. 官方 evaluator 只输出汇总 JSON；H2 `h2_pilot.py` 不改 official success/action/env，只包装 `run_task/run_episode`，逐 episode 写确定性 video 与 registry。多 trial 配置用 `episode_idx`，官方视频关闭以免重复。
+4. 锁定 SmolVLA/OpenVLA `run_episode` 会记录 `Episode error:` 后返回 failure/frames/cost。C3、pilot、C7 共用项目侧日志捕获；即使已有有限动作和帧也写 exception 并非零退出。三种返回值均静态锁为三元组，monkeypatch 通过签名绑定取参数，不依赖裸位置猜测。
+5. SmolVLA 上游每 episode 调用 `policy.reset()`；C7 runner 仍显式调用可用 reset。OpenVLA 锁定 `get_action` 是逐步单动作调用、没有 action queue/reset API；模型只加载一次，每 episode 重置 RNG 并重建 env。
+6. 资产下载前按官方 revision 查询全文件 metadata。Smol allowlist 精确为 `pretrained_model/*` 三文件；OpenVLA complete snapshot 精确为 lock 的 20 文件；额外/缺失文件、总量越界或离线必需文件不全均在 `snapshot_download` 前失败。
 
 两项都是 wrapper/配置层规避，不改 upstream tracked file。若上游接口与锁定断言不符，wrapper 必须 fail closed，不猜测继续。
 
@@ -33,6 +36,7 @@
 
 - upstream 必须 detached 到锁定 commit，`git status --short` 必须为空；配置和 patch 只在 run 目录。
 - 所有写入根必须是显式 `H2_RUN/H2_ASSETS/H2_CACHE/H2_VENVS`；脚本拒绝 `/`、home 目录和 upstream 子目录。
+- C7 的 `pair_family/pair_id/condition` 只允许 1–64 位 ASCII 字母、数字、`_`、`-`，拒绝点号和路径分隔符；所有派生 result/video 路径 `resolve()` 后必须仍在对应 run 子树。
 - 断点恢复依据 state/receipt，不覆盖旧 run。
 - 自动清理脚本不删除数据；只给出明确的可再下载目录列表，由实例操作者在证据备份后处理。
 

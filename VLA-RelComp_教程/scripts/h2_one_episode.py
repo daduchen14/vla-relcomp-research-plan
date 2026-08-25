@@ -128,6 +128,28 @@ class ActionAudit:
         return wrapped
 
 
+class EpisodeErrorCapture:
+    """Capture evaluator errors that locked run_episode logs and then swallows."""
+
+    def __init__(self) -> None:
+        self.active = False
+        self.errors: list[str] = []
+
+    def wrap(self, original: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapped(message: str, *args: Any, **kwargs: Any) -> Any:
+            if self.active and "Episode error:" in str(message):
+                self.errors.append(str(message))
+            return original(message, *args, **kwargs)
+        return wrapped
+
+    def begin(self) -> None:
+        self.errors.clear()
+        self.active = True
+
+    def end(self) -> None:
+        self.active = False
+
+
 def save_video(frames: Any, path: Path) -> int:
     import imageio
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,8 +182,8 @@ def reset_peak_vram() -> None:
         pass
 
 
-def append_registry(run_root: Path, result: dict[str, object]) -> None:
-    registry = run_root / "registry" / "episode_registry.csv"
+def append_registry(run_root: Path, result: dict[str, object], registry_path: Path | None = None) -> None:
+    registry = registry_path or run_root / "registry" / "episode_registry.csv"
     if not registry.exists():
         raise ValueError("registry header is missing; run h2_prepare_run.py init first")
     with registry.open(newline="") as handle:
@@ -179,14 +201,23 @@ def append_registry(run_root: Path, result: dict[str, object]) -> None:
         "model_id": result["model_id"], "model_revision": result["model_revision"], "suite": SUITE,
         "level": result["task_level"], "task_id": result["task_id"], "seed": result["seed"],
         "init_state_index": result.get("init_state_index", ""), "instruction_original": result.get("task_description", ""),
-        "instruction_variant": result.get("task_description", ""), "intervention": "none",
+        "pair_family": result.get("pair_family", ""), "pair_id": result.get("pair_id", ""), "condition": result.get("condition", ""),
+        "changed_factor": result.get("changed_factor", ""),
+        "instruction_variant": result.get("instruction_variant", result.get("task_description", "")),
+        "intervention": result.get("intervention", "none"),
+        "target_object": result.get("target_object", ""), "reference_object": result.get("reference_object", ""),
+        "relation": result.get("relation", ""),
         "relation_satisfied": int(bool(result["official_goal_success"])) if result.get("official_goal_success") is not None else "",
         "success": int(bool(result["official_goal_success"])) if result.get("official_goal_success") is not None else "",
         "steps": result.get("action_calls", ""), "wall_seconds": result.get("wall_seconds", ""),
         "peak_vram_mb": result.get("peak_vram_mb") or "", "video_path": result.get("video_path", ""),
         "log_path": result.get("log_path", ""), "result_path": result.get("result_path", ""),
         "exception": result.get("exception", ""),
-        "notes": "official success is primary; behavior thresholds remain uncalibrated; action_calls is not guaranteed to equal env steps",
+        "notes": (
+            "privileged diagnostic; not eligible as final method; official success remains primary"
+            if result.get("intervention") not in {None, "", "none"}
+            else "official success is primary; behavior thresholds remain uncalibrated; action_calls is not guaranteed to equal env steps"
+        ),
     })
     with registry.open("a", newline="") as handle:
         csv.DictWriter(handle, fieldnames=fields).writerow(row)
@@ -224,6 +255,7 @@ def execute(
     env = None
     sidecar = None
     audit = ActionAudit()
+    episode_error_capture = EpisodeErrorCapture()
     started = datetime.now(timezone.utc)
     clock = time.monotonic()
     result: dict[str, object] = {
@@ -279,6 +311,8 @@ def execute(
             module.get_action = audit.wrap_function(module.get_action)
             replacements = module.load_replacements_dict(cfg, module.logger)
 
+        module.log_message = episode_error_capture.wrap(module.log_message)
+
         suite_class = benchmark.get_benchmark_dict()[SUITE]
         suite = suite_class()
         task = suite.get_task_by_level_id(cfg.task_level, task_id)
@@ -315,17 +349,23 @@ def execute(
             )
             sidecar.install()
         stage = "episode"
-        if model == "random":
-            success, frames, cost = module.run_episode(cfg, env, task_description, model_object, initial_state, log_file)
-        elif model == "smolvla":
-            max_steps = 600 if SUITE == "long_horizon" and cfg.task_level >= 1 else 300
-            success, frames, cost = module.run_episode(
-                cfg, env, task_description, model_object, replacements, SUITE, max_steps, initial_state, log_file,
-            )
-        else:
-            success, frames, cost = module.run_episode(
-                cfg, env, task_description, model_object, resize_size, replacements, processor, initial_state, log_file,
-            )
+        episode_error_capture.begin()
+        try:
+            if model == "random":
+                success, frames, cost = module.run_episode(cfg, env, task_description, model_object, initial_state, log_file)
+            elif model == "smolvla":
+                max_steps = 600 if SUITE == "long_horizon" and cfg.task_level >= 1 else 300
+                success, frames, cost = module.run_episode(
+                    cfg, env, task_description, model_object, replacements, SUITE, max_steps, initial_state, log_file,
+                )
+            else:
+                success, frames, cost = module.run_episode(
+                    cfg, env, task_description, model_object, resize_size, replacements, processor, initial_state, log_file,
+                )
+        finally:
+            episode_error_capture.end()
+        if episode_error_capture.errors:
+            raise RuntimeError("evaluator swallowed episode exception: " + " | ".join(episode_error_capture.errors))
         stage = "video"
         frame_count = save_video(frames, video_path)
         if frame_count == 0:

@@ -12,7 +12,7 @@ safety: false
 init_state_selection_mode: "first"
 init_state_offset: 0
 init_state_offset_random: false
-save_video_mode: "first_success_failure"
+save_video_mode: "none"
 local_log_dir: "__H2_RUN_ROOT__/logs/random_l0"
 use_local_log: true
 use_wandb: false

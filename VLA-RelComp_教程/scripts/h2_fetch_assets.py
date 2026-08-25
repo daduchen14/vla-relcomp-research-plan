@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
-from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,6 +15,17 @@ MAX_ASSET_BYTES = 20 * 1024**3
 ASSET_MAP = {
     "smolvla": "VLA-Arena/smolvla-vla-arena",
     "openvla": "VLA-Arena/openvla-7b-finetuned-vla-arena",
+}
+ALLOW_PATTERNS = {"smolvla": ["pretrained_model/*"], "openvla": None}
+OFFLINE_REQUIRED = {
+    "smolvla": {"pretrained_model/config.json", "pretrained_model/model.safetensors"},
+    "openvla": {
+        "config.json", "model.safetensors.index.json", "model-00001-of-00004.safetensors",
+        "model-00002-of-00004.safetensors", "model-00003-of-00004.safetensors",
+        "model-00004-of-00004.safetensors", "tokenizer.model", "tokenizer_config.json",
+        "preprocessor_config.json", "processor_config.json", "configuration_prismatic.py",
+        "modeling_prismatic.py", "processing_prismatic.py",
+    },
 }
 
 
@@ -46,36 +57,100 @@ def safe_asset_root(path: Path) -> Path:
     return resolved
 
 
+def official_metadata(asset: str, repo: str, revision: str, fixture: Path | None) -> dict[str, object]:
+    if fixture is not None:
+        payload = json.loads(fixture.read_text())
+        selected = payload["assets"][asset]
+        if selected["repo"] != repo or selected["revision"] != revision:
+            raise ValueError("metadata fixture does not match locked repo/revision")
+        return {**selected, "metadata_source": str(fixture.resolve()), "metadata_fixture": True}
+    from huggingface_hub import HfApi
+    info = HfApi().model_info(repo_id=repo, revision=revision, files_metadata=True)
+    files = []
+    for sibling in info.siblings:
+        size = getattr(sibling, "size", None)
+        if size is None:
+            raise ValueError(f"official metadata lacks size for {sibling.rfilename}")
+        lfs = getattr(sibling, "lfs", None)
+        sha256 = lfs.get("sha256") if isinstance(lfs, dict) else getattr(lfs, "sha256", None)
+        files.append({"path": sibling.rfilename, "size": int(size), "sha256": sha256})
+    return {
+        "repo": repo, "revision": info.sha, "files": files,
+        "metadata_source": "HfApi.model_info(files_metadata=True)", "metadata_fixture": False,
+    }
+
+
+def build_download_plan(asset: str, entries: list[dict[str, object]], metadata: dict[str, object]) -> dict[str, object]:
+    repo = ASSET_MAP[asset]
+    selected_lock = [entry for entry in entries if entry["repo"] == repo]
+    if not selected_lock or any(entry["status"] == "not_required" for entry in selected_lock):
+        raise ValueError("asset is missing or explicitly not required")
+    revisions = {str(entry["revision"]) for entry in selected_lock}
+    if len(revisions) != 1 or metadata["revision"] not in revisions:
+        raise ValueError("official metadata revision does not equal the single locked revision")
+    patterns = ALLOW_PATTERNS[asset]
+    remote_files = {
+        str(item["path"]): item for item in metadata["files"]
+        if patterns is None or any(fnmatch.fnmatch(str(item["path"]), pattern) for pattern in patterns)
+    }
+    locked_files = {str(entry["path"]): entry for entry in selected_lock}
+    if set(remote_files) != set(locked_files):
+        raise ValueError(
+            f"snapshot selection and lock differ; remote_only={sorted(set(remote_files)-set(locked_files))}; "
+            f"lock_only={sorted(set(locked_files)-set(remote_files))}"
+        )
+    mismatches = [path for path in remote_files if int(remote_files[path]["size"]) != int(locked_files[path]["size"])]
+    if mismatches:
+        raise ValueError(f"official metadata size differs from lock: {mismatches}")
+    hash_mismatches = [
+        path for path in remote_files
+        if str(locked_files[path]["sha256"]) != "-"
+        and remote_files[path].get("sha256") != locked_files[path]["sha256"]
+    ]
+    if hash_mismatches:
+        raise ValueError(f"official metadata sha256 differs from lock: {hash_mismatches}")
+    missing_offline = sorted(OFFLINE_REQUIRED[asset] - set(remote_files))
+    if missing_offline:
+        raise ValueError(f"snapshot is incomplete for offline loading: {missing_offline}")
+    actual_bytes = sum(int(item["size"]) for item in remote_files.values())
+    if actual_bytes > MAX_ASSET_BYTES:
+        raise ValueError(f"official snapshot selection exceeds 20 GiB: {actual_bytes}")
+    return {
+        "asset": asset, "repo": repo, "revision": next(iter(revisions)),
+        "allow_patterns": patterns, "actual_metadata_bytes": actual_bytes,
+        "files_selected": len(remote_files), "selected_paths": sorted(remote_files),
+        "metadata_source": metadata["metadata_source"], "metadata_fixture": metadata["metadata_fixture"],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--lock", type=Path, required=True)
     parser.add_argument("--asset", choices=tuple(ASSET_MAP), required=True)
     parser.add_argument("--asset-root", type=Path, required=True)
+    parser.add_argument("--metadata-fixture", type=Path, help="offline validator only; real downloads must query official metadata")
     parser.add_argument("--acknowledge-download", action="store_true")
     args = parser.parse_args()
     entries = read_lock(args.lock)
     repo = ASSET_MAP[args.asset]
     selected = [entry for entry in entries if entry["repo"] == repo]
-    if not selected or any(entry["status"] == "not_required" for entry in selected):
-        raise SystemExit("asset is missing or explicitly not required")
-    revisions = {entry["revision"] for entry in selected}
-    if len(revisions) != 1:
-        raise SystemExit("asset lock has multiple revisions")
-    expected_bytes = sum(int(entry["size"]) for entry in selected)
-    if expected_bytes > MAX_ASSET_BYTES:
-        raise SystemExit("locked asset exceeds the 20 GiB authorization boundary")
-    plan = {"asset": args.asset, "repo": repo, "revision": next(iter(revisions)), "locked_bytes": expected_bytes, "files_checked": len(selected), "download": args.acknowledge_download}
+    if not selected:
+        raise SystemExit("asset is absent from lock")
+    revision = str(selected[0]["revision"])
+    metadata = official_metadata(args.asset, repo, revision, args.metadata_fixture)
+    plan = {**build_download_plan(args.asset, entries, metadata), "download": args.acknowledge_download}
     if not args.acknowledge_download:
         print(json.dumps({**plan, "status": "dry_run_no_download"}, ensure_ascii=False, indent=2))
         return 0
+    if args.metadata_fixture is not None:
+        raise SystemExit("refusing download with fixture metadata; omit --metadata-fixture to query official metadata live")
 
     from huggingface_hub import snapshot_download
 
     asset_root = safe_asset_root(args.asset_root)
     target = asset_root / args.asset
     target.mkdir(parents=True, exist_ok=True)
-    allow_patterns = ["pretrained_model/*"] if args.asset == "smolvla" else None
-    returned = snapshot_download(repo_id=repo, revision=plan["revision"], local_dir=target, allow_patterns=allow_patterns)
+    returned = snapshot_download(repo_id=repo, revision=plan["revision"], local_dir=target, allow_patterns=plan["allow_patterns"])
     verified: list[dict[str, object]] = []
     for entry in selected:
         file_path = target / str(entry["path"])

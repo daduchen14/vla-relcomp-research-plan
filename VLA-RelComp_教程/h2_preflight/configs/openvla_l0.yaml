@@ -26,7 +26,7 @@ wandb_entity: "unused"
 wandb_project: "unused"
 seed: 7
 result_json_path: "__H2_RUN_ROOT__/results/openvla_l0.json"
-save_video_mode: "first_success_failure"
+save_video_mode: "none"
 replacements_file: "__H2_UPSTREAM__/language_replacements"
 use_replacements: false
 replacement_probability: 1.0

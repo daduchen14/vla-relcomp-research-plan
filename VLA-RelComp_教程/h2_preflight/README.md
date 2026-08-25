@@ -1,6 +1,6 @@
 # H2 Linux/NVIDIA 参考运行预检包
 
-> 状态：`Mac 免费实测 + 锁定源码静态核验`。本包没有执行 VLA-Arena episode、没有加载 checkpoint、没有产生 GPU 性能或 Gate 1–3 结论。
+> 状态：`H2.1 Mac 免费实测 + 锁定源码静态核验`。本包没有执行 VLA-Arena episode、没有加载 checkpoint、没有产生 GPU 性能或 Gate 1–3 结论。
 
 ## 一、唯一目标与边界
 
@@ -105,7 +105,7 @@ uv run --project "$H2_UPSTREAM/envs/smolvla" --frozen \
   --asset smolvla --asset-root "$H2_ASSETS" --acknowledge-download
 ```
 
-返回 receipt 必须记录 revision，并通过大文件 SHA-256。OpenVLA 同理但只在 C5 执行。训练数据条目标为 `not_required` 且脚本拒绝下载。
+下载前，脚本必须实时调用官方 Hugging Face `model_info(files_metadata=True)`：先按与 `snapshot_download` 完全相同的 allowlist 计算实际选择集和逐文件 logical bytes 总和（不拿可能含去重口径的 repo `usedStorage` 代替），再要求选择集与 lock 精确相等、离线加载必需文件齐全且总量不超过 20 GiB。元数据不可用、出现未锁文件或缺文件都在下载前失败。receipt 保存实际选择集、总字节、allowlist、revision 与逐文件校验；OpenVLA 同理但只在 C5 执行。训练数据标为 `not_required` 且脚本拒绝下载。`h2_hf_metadata_fixture.json` 只供离线测试，带 fixture 时下载器明确拒绝真实下载。
 
 ### 5. 渲染运行配置
 
@@ -132,6 +132,30 @@ python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
   --upstream "$H2_UPSTREAM" --run-root "$H2_RUN"
 ```
 
+`h2_one_episode.py`、`h2_pilot.py` 与 `h2_c7_runner.py` 共用同一 fail-closed 口径：除 finite 7D action 和非空视频外，还捕获锁定 evaluator 记录后吞掉的 `Episode error:`；任一信号出现均写入 exception 并非零退出。pilot 由 wrapper 为每个 registry 行写一个确定性 MP4，官方 `save_video_mode` 固定为 `none`，避免重复视频和无法逐行连接。
+
+### 6.1 C7 最短可执行路径
+
+先从 `assets/pair_manifest_template.csv` 生成 `$H2_RUN/registry/pair_manifest.csv`。`pair_family` 表示同一反事实设计，`pair_id` 表示其中一个 seed 的执行单元；每个 `pair_id` 恰有两个 condition，同一 family 至少两个不同 seed。每行显式给出受限语法 `target=...; action=place; relation=...; reference=...`，并完成 goal、可达与泄漏核验。
+
+```bash
+python3 "$H2_TUTORIAL/scripts/h2_pair_oracle_audit.py" \
+  --manifest "$H2_RUN/registry/pair_manifest.csv" --require-ready
+export UV_PROJECT_ENVIRONMENT="$H2_VENVS/smolvla"  # 或 Gate 2 选定的 openvla
+python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
+  --evidence-dir "$H2_RUN/commands/c7-language-oracle" -- \
+  uv run --project "$H2_UPSTREAM/envs/smolvla" --frozen \
+  python "$H2_TUTORIAL/scripts/h2_c7_runner.py" --model smolvla \
+  --config "$H2_RUN/configs/smolvla_l0_t1.yaml" --upstream "$H2_UPSTREAM" \
+  --manifest "$H2_RUN/registry/pair_manifest.csv" --run-root "$H2_RUN"
+python3 "$H2_TUTORIAL/scripts/h2_pair_oracle_audit.py" \
+  --manifest "$H2_RUN/registry/pair_manifest.csv" \
+  --registry "$H2_RUN/registry/c7_episode_registry.csv" --require-ready \
+  --output "$H2_RUN/results/c7_pair_oracle_audit.json"
+```
+
+runner 只加载一次模型，但为 manifest 每行构造独立 config 副本，使全局 RNG、环境 seed 和 registry seed 一致；每个 condition 依次运行 `none` 与 `language_oracle`，重建环境并显式清理可用的 policy state。语言 oracle 是 `privileged_diagnostic=true`、`final_method_eligible=false`。视觉 oracle 状态为 `not_implemented_not_runnable`，没有伪命令。
+
 ### 7. 断点恢复、完成与清理
 
 - 恢复：对照 `$H2_RUN/checkpoint_state.json`，只重跑最后一个非 `passed` 检查点；不删失败日志。
@@ -146,3 +170,10 @@ python3 "$H2_TUTORIAL/scripts/h2_capture_command.py" \
 - `等待授权`：真实实例登录/付费、实例上的模型下载与任何凭据使用。
 
 不得把 `--dry-run`、fixture、Mac 探针或静态 AST 检查写成 GPU 结果。
+
+## 六、逐 episode 视频保留策略
+
+- C2/C4 pilot 与 C7 每个登记 episode 只保存一个 256×256、30 fps 的确定性 MP4；registry 必须指向该真实非空文件。
+- 同一 run 内目标视频已存在时拒绝覆盖；重试新建 `retry-01` run，保留失败证据。
+- 在 Gate 人工复核和 `sha256_manifest.json` 封存完成前保留全部视频。备份后可删除可再生成的 cache/venv/model，但不删除 registry 所引用的视频。
+- 这是以可审计性换磁盘；C4 75 episodes 仍包含在 2–20 GB 估计内，首次实跑后以真实字节数修订。

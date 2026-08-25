@@ -27,6 +27,7 @@
 | 研究协议一致性审计 | 已验收 | 与 D1、数据字典、泄漏边界一致 | `validation/03_研究协议一致性审计.md` |
 | 完成报告与私有备份 | 已验收 | 验收矩阵、GPU 待验证项、风险和下一阶段 | `validation/04_完成报告.md` |
 | H2 Linux/NVIDIA 预检包 | 已验收 | C0–C7、资产/环境锁、脚本、证据、恢复、安全审计 | `validation/05_H2预检完成报告.md` |
+| H2.1 证据链修补 | 已验收 | 逐 episode 视频、吞异常 fail-closed、manifest 绑定、多 seed C7 runner、下载前元数据闸门 | `validation/05_H2预检完成报告.md` |
 
 ## 变更记录
 
@@ -40,6 +41,7 @@
 - 完成零基础学习者审计与研究协议一致性审计。
 - 按用户冻结范围最小整合 Every-Embodied：Day 2 用单帧字段映射替代抽象 shape 例子，Day 4 用五段流程替代抽象分布偏移说明，Day 10 增加“官方 success 主评价＋行为过程辅助诊断”；其余材料统一为非必读按需索引。未增加安装、GPU、仿真、下载或必修时长，并重新通过原有离线验证。
 - H2 Linux/NVIDIA 预检：建立只读上游、隔离 uv 环境、固定 HF revision/大文件哈希、C0–C7 检查点、真单 episode wrapper、命令收据、状态 sidecar schema、断点恢复和证据封存。当前标记为 Mac 免费实测/静态核验，未运行 GPU、MuJoCo episode、checkpoint 或 Gate。
+- H2.1：修复 pilot 空 video_path 与 episode 审计 fail-open；C3/pilot/C7 统一捕获 evaluator 吞掉的 `Episode error:`；C7 以 pair_family/pair_id/condition 绑定 manifest，支持同一 manifest 多 seed 并新增可执行 language-oracle runner；下载前用官方 metadata 核实际 snapshot 字节和完整性。fixture/static 通过，不是 GPU 结果。
 
 ## 当前下一步
 

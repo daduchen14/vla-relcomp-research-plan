@@ -26,14 +26,20 @@ def main() -> int:
     root = args.run_root.expanduser().resolve()
     if root in {Path("/"), Path.home().resolve()} or not (root / "run_manifest.json").is_file():
         raise SystemExit(f"not an initialized H2 run root: {root}")
-    registry = root / "registry" / "episode_registry.csv"
-    with registry.open(newline="") as handle:
-        rows = list(csv.DictReader(handle))
+    registries = sorted((root / "registry").glob("*episode_registry.csv"))
+    if not registries:
+        raise SystemExit("no episode registry found")
+    rows: list[tuple[Path, dict[str, str]]] = []
+    for registry in registries:
+        with registry.open(newline="") as handle:
+            rows.extend((registry, row) for row in csv.DictReader(handle))
     missing_paths: list[str] = []
-    for row in rows:
+    for registry, row in rows:
         for key in ("video_path", "log_path", "result_path"):
             value = row.get(key, "")
-            if value and not Path(value).is_file():
+            if not value:
+                missing_paths.append(f"{registry.name}:{row.get('episode_id', '?')}:{key}:blank")
+            elif not Path(value).is_file():
                 missing_paths.append(value)
     hashes_dir = root / "hashes"
     hashes_dir.mkdir(exist_ok=True)
@@ -43,6 +49,7 @@ def main() -> int:
         files.append({"path": str(path.relative_to(root)), "bytes": path.stat().st_size, "sha256": digest(path)})
     payload = {
         "created_utc": datetime.now(timezone.utc).isoformat(), "run_root": str(root), "files": files,
+        "registries": [str(path.relative_to(root)) for path in registries],
         "registry_rows": len(rows), "missing_registry_paths": missing_paths,
         "status": "complete" if not missing_paths else "incomplete",
         "claim_boundary": "Hashing verifies file integrity only; it does not validate scientific conclusions.",
