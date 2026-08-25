@@ -1,13 +1,15 @@
-UTC 2026-08-25T06:03:04Z
+UTC 2026-08-25T07:34:10Z
+PASS py_compile scripts=7
 PASS commit=babe582ebffc82b979b77964a7e56417d02f63a4
 PASS critical_paths=9
 PASS bddl_by_level=5,5,5 init_by_level=5,5,5
 PASS suite_registry_and_success_path
 PASS: Day 0–14 structural requirements found; this does not replace factual/manual review.
-YAML PASS 方向筛选/VLA-RelComp_教程/configs/openvla_l0_smoke.yaml Hash
-YAML PASS 方向筛选/VLA-RelComp_教程/configs/random_l0_smoke.yaml Hash
-YAML PASS 方向筛选/VLA-RelComp_教程/configs/smolvla_l0_smoke.yaml Hash
-wrote 15 tasks to 方向筛选/VLA-RelComp_教程/validation/generated/task_manifest_recheck.csv
+PASS minimal_integration=day02_episode_fields,day04_learning_flow,day10_dual_record,on_demand_index
+YAML PASS VLA-RelComp_教程/configs/openvla_l0_smoke.yaml Hash
+YAML PASS VLA-RelComp_教程/configs/random_l0_smoke.yaml Hash
+YAML PASS VLA-RelComp_教程/configs/smolvla_l0_smoke.yaml Hash
+wrote 15 tasks to /tmp/vla_relcomp_task_manifest_recheck.csv
 levels: {0: 5, 1: 5, 2: 5}
 {
   "target_contact_step": 2,

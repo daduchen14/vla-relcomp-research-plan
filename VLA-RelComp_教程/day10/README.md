@@ -10,13 +10,22 @@
 
 ## 具体场景与最小例子
 
-样例轨迹 step2 接触、step3 高度≥0.10、step5 参照距离≤0.25、step6 goal 成立。探针报告首次事件 step，而不是只报最终布尔值，便于检查顺序。
+synthetic fixture 中，step2 接触、step3 达到 fixture 抬升条件、step5 达到 fixture 靠近条件、step6 relation 成立。探针报告首次事件 step，而不是只报最终布尔值，便于检查顺序。fixture 里的数值只验证脚本分支，不是未来真实实验阈值，更不是从社区杯子任务迁移来的阈值。
 
 ## 零基础知识讲义
 
 Instrumentation 是测量旁路：读取环境状态、计算事件、写日志，不改 observation、action、物理或 goal。操作性定义必须固定对象实例、接触稳定条件、高度基准/阈值、距离度量/持续步数和 predicate。阈值是研究选择，应先用少量轨迹和人工回放校准，再冻结。
 
 四段事件是行为证据：正确接触说明行为指向目标，不证明模型内部识别；抬升说明抓取阶段完成；距离下降说明搬运方向；goal 是 CBDDL 最终判定。事件可非严格单调，需保存原始每步值和首次/持续条件。
+
+### 双层记录：主评价与辅助诊断
+
+| 层级 | 记录内容 | 用途 | 纪律 |
+|---|---|---|---|
+| A. 官方 goal success（主要评价） | 锁定环境 `_check_success` / `info['success']`、done、timeout 与官方 goal predicates | 计算论文主表、Gate 成功率和模型比较 | 不被阶段探针覆盖；即使视频观感不好也先原样保存官方值 |
+| B. 行为过程诊断（辅助） | 目标接触、相对抬升、向参照靠近、终态关系的原始逐步量、首次事件和定义版本 | 定位失败发生在哪一段、挑选录像复核、形成反事实假设 | 不另造“修正版成功率”，不取代官方指标，不作为提前改标签的理由 |
+
+真实运行前，B 层只保存可直接读取的原始量和 `definition_status=uncalibrated`；不得预填接触持续步数、抬升高度或距离阈值。获得真实 rollout 后，先盲抽少量成功/失败视频与状态轨迹，提出候选阈值，检查与人工判读的一致性，再在看正式 L1/L2 结果前冻结 `definition_version`。社区项目的杯子高度、姿态或距离数值一律不迁移。若 B 层与 A 层不一致，报告为“官方 success + 诊断分歧”并复核视频，官方 success 仍是主评价。
 
 ## 必读材料
 
@@ -39,6 +48,8 @@ python3 scripts/stage_probe_demo.py assets/sample_trajectory.csv
 
 `静态核验`：候选插入点在 evaluator `env.step` 之后、done break 之前；只读取状态并写项目日志。`估计—未运行`：真实对象接触 API、坐标阈值和持续步数需 Linux 仿真 pilot 校准；正式为 `待用户执行`。
 
+真实 episode 汇总至少并列保存 `official_goal_success`、`done_reason`、`diagnostic_definition_version` 和四段事件；校准前后不得覆写这些历史字段。当前 fixture 输出只证明 B 层记录器能分段，不产生 A 层真实成功率，也不完成阈值校准。
+
 ## 在真实代码中的位置
 
 上游 env step 返回 `info['success']`；项目新增应放 `VLA-RelComp/src/instrumentation`，通过小补丁/包装器接入 evaluator，upstream 保持不改或保存明确 patch。registry 存 episode 汇总，trajectory 文件存每步状态。
@@ -49,7 +60,7 @@ python3 scripts/stage_probe_demo.py assets/sample_trajectory.csv
 
 ## 时间预算、最低完成线、标准完成线与选做
 
-正常 6–8 小时。最低：运行样例并写四个操作定义。标准：伪代码、字段、阈值冻结流程与人工抽查表齐全。选做：加入持续两步条件并比较首次事件变化。
+正常 6–8 小时。双层表替代“分段事件与 success 关系”的抽象辨析，不增加必修时长。最低：运行样例并写四个候选操作定义，同时说明官方 success 是主指标。标准：伪代码、原始字段、阈值校准/冻结流程与人工抽查表齐全。选做：只在真实 pilot 后比较候选持续条件；当前不预设数值。
 
 ## 当日交付物
 
@@ -57,6 +68,6 @@ stage probe 日志、操作定义表、只读接入伪代码、5 条人工抽查
 
 ## 自测题、参考答案与复试口述
 
-问题：探针为何必须只读？接触能证明识别吗？为什么保存首次 step？阈值何时冻结？state 可否给最终模型？
+问题：探针为何必须只读？接触能证明识别吗？为什么保存首次 step？官方 success 与行为诊断谁是主指标？阈值何时冻结？state 可否给最终模型？
 
-参考答案：避免改变被测行为；不能；支持顺序/回放核验；pilot 与人工校准后；不能用测试特权 state。复试口述：解释四段各能说与不能说什么。
+参考答案：避免改变被测行为；不能；支持顺序/回放核验；官方 goal success；真实 pilot 与人工校准后、正式结果前；不能用测试特权 state。复试口述：先声明官方 success 是主评价，再解释四段各能说与不能说什么。

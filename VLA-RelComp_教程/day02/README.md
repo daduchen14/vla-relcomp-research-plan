@@ -10,7 +10,17 @@
 
 ## 具体场景与最小例子
 
-同一个值列表 `[0.02, 0.02, 0.01, 0, 0, 0, -1]` 可能只是 Python list，也可能是 shape `[7]` 的单动作；加 batch 后为 `[1,7]`；四步动作块为 `[1,4,7]`。数值相同但轴语义不同，模型和环境不会替你猜。
+先拆一帧真实数据结构。下面的字段名和 shape 来自 Every-Embodied 的 LeRobot/MuJoCo 示教数据结构；它只用于帮助你看懂“一帧 episode 记录里有什么”，不是 VLA-Arena 数据，也不要求安装或运行该项目。示例值省略，避免把未运行数据写成实验结果。
+
+| LeRobot/MuJoCo 类比字段 | 单帧 shape / 含义 | 映射回锁定 VLA-Arena SmolVLA evaluator | 不能混淆的地方 |
+|---|---|---|---|
+| `observation.image` | `(256,256,3)`，外部相机 RGB | 原始 `obs['agentview_image']` 经翻转、归一化和转轴后成为 `observation.images.image`，模型输入为 `[1,3,H,W]` | 字段名、分辨率和预处理以 VLA-Arena 锁定代码为准 |
+| `observation.wrist_image` | `(256,256,3)`，腕部相机 RGB | 原始 `obs['robot0_eye_in_hand_image']` 处理后成为 `observation.images.wrist_image` | 不能把两路相机交换，也不能假设所有模型使用相同键名 |
+| `observation.state` | `(6,)`，该示例写末端位姿 | VLA-Arena 把 `robot0_eef_pos`、四元数转轴角、`robot0_gripper_qpos` 拼成 state；实际长度由代码决定 | 两边 state 维数和语义并不相同，不能直接复用 checkpoint 或数据 |
+| `action` | `(7,)`，该示例写 6 个关节量加夹爪 | VLA-Arena 环境也接收 7 维动作，但 evaluator 的坐标约定、归一化和夹爪后处理才是事实依据 | “都是 7 维”不代表控制语义相同 |
+| `obj_init` | `(6,)`，示例环境的物体初始信息，训练不用 | VLA-Arena 初始状态由冻结 `.pruned_init` 和 init selector 管理，不是模型 observation 字段 | 特权初始真值不能因为便于诊断而送给策略 |
+
+把这一帧加入 batch 后，单个 7 维 action 是 `[1,7]`；连续四帧动作组成教学 chunk 才是 `[1,4,7]`。这张表替代纯抽象背轴：先问“字段代表什么”，再检查 shape，最后回到锁定 evaluator 确认真实键名与预处理。
 
 ## 零基础知识讲义
 
@@ -98,6 +108,7 @@ print(y.shape)
 - `models/smolvla/evaluator.py`：模型 device、`eval()`、episode action。
 - `models/openvla/evaluator.py`：observation 预处理与夹爪后处理。
 - 未来 `episode_registry` 保存 steps，而 instrumentation 轨迹另存每 step action/state；不要把块长度当环境步数。
+- Every-Embodied 仅提供上面的字段类比；动作分箱、LIBERO 与社区模型排错统一列在 `../assets/按需参考索引.md`，不属于本日必读或安装任务。
 
 ## 常见错误、诊断顺序、备用路线与止损
 
