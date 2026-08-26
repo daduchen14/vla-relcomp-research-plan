@@ -6,7 +6,7 @@
 
 ## 使用顺序
 
-1. 首次从 GitHub 获取时，先按 [`h2_preflight/fresh_clone_quickstart.md`](h2_preflight/fresh_clone_quickstart.md) 锁定分支、基线和目录；
+1. 首次从 GitHub 获取时，先按 [`h2_preflight/fresh_clone_quickstart.md`](h2_preflight/fresh_clone_quickstart.md) 锁定受审发布 tag 和目录；
 2. 阅读 `00_课程使用说明与学习地图.md` 与 `assets/证据标签与目录约定.md`；
 3. 从 `day00/README.md` 顺序做到 `day14/README.md`，不得跳过 Gate；
 4. 每天先做开始前自检，再读指定范围、运行最小实验、改变一个变量、保存交付物、最后脱离 Agent 口述；

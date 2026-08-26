@@ -12,9 +12,8 @@ from pathlib import Path
 from typing import Any
 
 
-BASELINE_COMMIT = "fba7a7fc17c240f2f1d2ce5c245bc00704e6efa9"
 UPSTREAM_COMMIT = "babe582ebffc82b979b77964a7e56417d02f63a4"
-BRANCH = "h2-linux-nvidia-preflight"
+RELEASE_TAG = "vla-relcomp-h2.5.1"
 
 
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -37,15 +36,19 @@ def resolve_roots(
     return repo, tutorial
 
 
-def branch_report(repo: Path) -> dict[str, Any]:
+def repository_report(repo: Path) -> dict[str, Any]:
     head = git(repo, "rev-parse", "HEAD")
     branch = git(repo, "branch", "--show-current")
-    ancestor = git(repo, "merge-base", "--is-ancestor", BASELINE_COMMIT, "HEAD")
+    release = git(repo, "rev-parse", "--verify", f"refs/tags/{RELEASE_TAG}^{{commit}}")
     dirty = git(repo, "status", "--short")
+    observed_head = head.stdout.strip() if head.returncode == 0 else None
+    release_commit = release.stdout.strip() if release.returncode == 0 else None
     return {
-        "head": head.stdout.strip() if head.returncode == 0 else None,
+        "head": observed_head,
         "branch": branch.stdout.strip() if branch.returncode == 0 else None,
-        "contains_frozen_baseline": ancestor.returncode == 0,
+        "release_tag": RELEASE_TAG,
+        "release_commit": release_commit,
+        "head_matches_release_tag": observed_head is not None and observed_head == release_commit,
         "working_tree_clean": dirty.returncode == 0 and not dirty.stdout.strip(),
         "status_short": dirty.stdout.splitlines() if dirty.stdout.strip() else [],
     }
@@ -70,12 +73,10 @@ def upstream_report(upstream: Path | None) -> dict[str, Any]:
 def doctor(args: argparse.Namespace) -> int:
     repo, tutorial = resolve_roots(args.repo_root, args.tutorial_root)
     source = upstream_report(args.upstream)
-    repo_state = branch_report(repo)
+    repo_state = repository_report(repo)
     errors: list[str] = []
-    if repo_state["branch"] != BRANCH:
-        errors.append(f"expected branch {BRANCH}")
-    if not repo_state["contains_frozen_baseline"]:
-        errors.append(f"HEAD must contain frozen baseline {BASELINE_COMMIT}")
+    if not repo_state["head_matches_release_tag"]:
+        errors.append(f"HEAD must exactly match release tag {RELEASE_TAG}")
     if not repo_state["working_tree_clean"]:
         errors.append("working tree is not clean")
     if source["status"] != "ready":
@@ -95,10 +96,15 @@ def setup_dry_run(args: argparse.Namespace) -> int:
     if not args.dry_run:
         raise ValueError("setup is intentionally plan-only and requires --dry-run")
     repo, tutorial = resolve_roots(args.repo_root, args.tutorial_root)
-    upstream = (args.upstream or repo / "upstream" / "VLA-Arena").expanduser().resolve()
+    repo_state = repository_report(repo)
+    if not repo_state["head_matches_release_tag"]:
+        raise ValueError(f"HEAD must exactly match release tag {RELEASE_TAG}")
+    if not repo_state["working_tree_clean"]:
+        raise ValueError("working tree must be clean before setup planning")
+    upstream = (args.upstream or repo.parent / "VLA-Arena-upstream").expanduser().resolve()
     plan = [
-        ["git", "-C", str(repo), "switch", BRANCH],
-        ["git", "-C", str(repo), "merge-base", "--is-ancestor", BASELINE_COMMIT, "HEAD"],
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        ["git", "-C", str(repo), "rev-parse", "--verify", f"refs/tags/{RELEASE_TAG}^{{commit}}"],
         ["git", "clone", "https://github.com/PKU-Alignment/VLA-Arena.git", str(upstream)],
         ["git", "-C", str(upstream), "switch", "--detach", UPSTREAM_COMMIT],
         ["python3", str(tutorial / "scripts" / "validate_upstream.py"), str(upstream)],
@@ -106,6 +112,7 @@ def setup_dry_run(args: argparse.Namespace) -> int:
     ]
     print(json.dumps({
         "status": "dry_run_no_commands_executed", "repo_root": str(repo), "tutorial_root": str(tutorial),
+        "release_tag": RELEASE_TAG, "release_commit": repo_state["release_commit"],
         "upstream": str(upstream), "commands": plan,
         "claim_boundary": "Prints an argv plan only; it does not clone, install, download, create a run, or contact a remote.",
     }, ensure_ascii=False, indent=2))

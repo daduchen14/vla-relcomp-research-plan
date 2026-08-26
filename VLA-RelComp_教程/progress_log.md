@@ -55,7 +55,8 @@
 - H2.5：清除 Day/H2 作者路径和旧 upstream 假设，修正 `validate_upstream.py` 文档参数，增加 fresh clone 唯一入口与只读 `doctor/setup/status/resume/smoke` 导航。
 - H2.5：新增 manifest-bound C7 四格、recovery/damage、Wilson CI、精确 McNemar 与 task/seed/init 分层；异常/缺行拒绝、零分母 `null` fixture 通过。
 - H2.5：语言 oracle 四字段语法统一；visual oracle 全路径标为规范已有/执行未实现/不可运行；主教程受众和真零编程前置轨边界已写清。
-- 回归：H1 原回归、H2 31 文件/22 组离线检查、全教程 65 文档/代码路径/凭据扫描和 20 项隔离 fresh-checkout 回归通过。全部是 Mac/静态/dry-run/synthetic，未运行 GPU、模型或仿真。
+- H2.5.1：fresh clone 默认改为 HTTPS 固定受审 tag `vla-relcomp-h2.5.1`，凭据只由本机 manager/已登录链处理；SSH 降为已验证公钥的可选项。`setup/doctor` 拒绝 tag 之后的漂移提交。默认 VLA-Arena 改为仓库外 sibling，不降低 `doctor` clean 要求。根 README 改为唯一当前入口，26 号只作历史交接。
+- 回归：H1 原回归、H2 31 文件/23 组离线检查、67 个教程+根入口/历史交接文档/代码路径/凭据扫描，以及 22 项隔离 fresh-checkout/本地 Git 回归通过。全部是 Mac/静态/dry-run/synthetic，未运行 GPU、模型、仿真或网络克隆。
 
 ## 当前下一步
 

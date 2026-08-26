@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,9 @@ REQUIRED = (
 )
 FORBIDDEN_PATHS = ("/Users/", "/home/ubuntu", "/root/", "方向筛选/VLA-RelComp_教程", "work/VLA-Arena-upstream")
 SECRET_VALUE = re.compile(r"(?:hf_|ghp_)[A-Za-z0-9\-]{12,}|github_pat_[A-Za-z0-9_\-]{12,}")
+RELEASE_TAG = "vla-relcomp-h2.5.1"
+PRIVATE_CLONE_COMMAND = f"git clone --branch {RELEASE_TAG} --single-branch https://github.com/daduchen14/vla-relcomp-research-plan.git"
+EMBEDDED_HTTPS_CREDENTIAL = re.compile(r"https://[^/\s:@]+(?::[^@\s/]*)?@github\.com", re.IGNORECASE)
 
 
 def command(argv: list[str], expect: int = 0) -> dict[str, object]:
@@ -41,6 +45,21 @@ def command(argv: list[str], expect: int = 0) -> dict[str, object]:
     if completed.returncode != expect:
         raise AssertionError(f"command returned {completed.returncode}, expected {expect}: {argv}\n{completed.stdout}\n{completed.stderr}")
     return {"argv": argv, "returncode": completed.returncode, "stdout": completed.stdout.strip(), "stderr": completed.stderr.strip()}
+
+
+def release_fixture(tutorial: Path, parent: Path) -> tuple[Path, Path]:
+    repo = parent / "release-fixture"
+    repo.mkdir()
+    copied_tutorial = repo / "VLA-RelComp_教程"
+    shutil.copytree(tutorial, copied_tutorial, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"))
+    command(["git", "-C", str(repo), "init"])
+    command(["git", "-C", str(repo), "switch", "-c", "h2-linux-nvidia-preflight"])
+    command(["git", "-C", str(repo), "config", "user.name", "VLA-RelComp Fixture"])
+    command(["git", "-C", str(repo), "config", "user.email", "fixture@example.invalid"])
+    command(["git", "-C", str(repo), "add", "--", "VLA-RelComp_教程"])
+    command(["git", "-C", str(repo), "commit", "-m", "fixture: audited release"])
+    command(["git", "-C", str(repo), "tag", RELEASE_TAG])
+    return repo, copied_tutorial
 
 
 def main() -> int:
@@ -58,7 +77,11 @@ def main() -> int:
         raise AssertionError(f"missing H2 files: {missing}")
     checks.append({"check": "required_files", "status": "passed", "count": len(REQUIRED)})
 
-    scan_files = sorted(root.rglob("*.md"))
+    repository_docs = [root.parent / "README.md", root.parent / "26_教程任务交接说明.md"]
+    missing_repository_docs = [path.name for path in repository_docs if not path.is_file()]
+    if missing_repository_docs:
+        raise AssertionError(f"missing active repository docs: {missing_repository_docs}")
+    scan_files = repository_docs + sorted(root.rglob("*.md"))
     scan_files.extend(
         path for path in sorted((root / "scripts").glob("*.py"))
         if path.name not in {"h2_validate_package.py", "validate_fresh_checkout.py"}
@@ -69,12 +92,26 @@ def main() -> int:
         text = path.read_text()
         for forbidden in FORBIDDEN_PATHS:
             if forbidden in text:
-                violations.append(f"{path.relative_to(root)}:{forbidden}")
+                violations.append(f"{path.relative_to(root.parent)}:{forbidden}")
         if SECRET_VALUE.search(text):
-            violations.append(f"{path.relative_to(root)}:credential-like-value")
+            violations.append(f"{path.relative_to(root.parent)}:credential-like-value")
     if violations:
         raise AssertionError(f"security scan violations: {violations}")
-    checks.append({"check": "all_tutorial_docs_paths_and_credentials", "status": "passed", "files": len(scan_files)})
+    checks.append({"check": "active_repository_and_tutorial_docs_paths_and_credentials", "status": "passed", "files": len(scan_files)})
+
+    fresh_clone_text = (root / "h2_preflight/fresh_clone_quickstart.md").read_text()
+    if PRIVATE_CLONE_COMMAND not in fresh_clone_text:
+        raise AssertionError("fresh-clone guide is missing the HTTPS fixed-release-tag command")
+    if EMBEDDED_HTTPS_CREDENTIAL.search(fresh_clone_text):
+        raise AssertionError("fresh-clone guide embeds credentials in a GitHub HTTPS URL")
+    if "SSH 是可选替代，不是默认入口" not in fresh_clone_text:
+        raise AssertionError("fresh-clone guide does not mark SSH as optional")
+    checks.append({
+        "check": "private_fresh_clone_transport", "status": "passed",
+        "default": "https_fixed_release_tag_single_branch", "release_tag": RELEASE_TAG,
+        "credentials": "external_manager_no_embedded_secret",
+        "ssh": "optional_only_after_public_key_check", "evidence_label": "static_document_contract_no_network",
+    })
 
     help_scripts = (
         "validate_upstream.py", "h2_prepare_run.py", "h2_checkpoint_state.py", "h2_system_probe.py",
@@ -155,19 +192,39 @@ def main() -> int:
         if state_fixture["C0"]["status"] != "passed" or state_fixture["C1"]["status"] != "failed" or len(state_fixture["C1"]["history"]) != 2:
             raise AssertionError("checkpoint state transitions were not persisted")
         checks.append({"check": "checkpoint_state_machine_fixture", "status": "passed", "accepted": ["C0 pending->running->passed", "C1 pending->running->failed"], "rejected": ["terminal restart", "predecessor bypass", "pending direct pass", "terminal with missing planned evidence"], "evidence_label": "fixture_only"})
+        release_repo, release_tutorial = release_fixture(root, temp)
         setup_plan = command([
-            sys.executable, str(root / "scripts/vla_relcomp.py"), "setup", "--dry-run",
-            "--repo-root", str(root.parent), "--tutorial-root", str(root), "--upstream", str(upstream),
+            sys.executable, str(release_tutorial / "scripts/vla_relcomp.py"), "setup", "--dry-run",
+            "--repo-root", str(release_repo), "--tutorial-root", str(release_tutorial), "--upstream", str(upstream),
         ])
         if "dry_run_no_commands_executed" not in str(setup_plan["stdout"]):
             raise AssertionError("unified setup unexpectedly executed or changed its boundary")
+        release_doctor = command([
+            sys.executable, str(release_tutorial / "scripts/vla_relcomp.py"), "doctor",
+            "--repo-root", str(release_repo), "--tutorial-root", str(release_tutorial), "--upstream", str(upstream),
+        ])
+        if '"head_matches_release_tag": true' not in str(release_doctor["stdout"]):
+            raise AssertionError("doctor did not confirm the exact release tag")
+        drift = release_repo / "post-release-drift.txt"
+        drift.write_text("unreviewed fixture commit\n")
+        command(["git", "-C", str(release_repo), "add", "--", drift.name])
+        command(["git", "-C", str(release_repo), "commit", "-m", "fixture: post-release drift"])
+        command([
+            sys.executable, str(release_tutorial / "scripts/vla_relcomp.py"), "setup", "--dry-run",
+            "--repo-root", str(release_repo), "--tutorial-root", str(release_tutorial), "--upstream", str(upstream),
+        ], expect=2)
+        command([
+            sys.executable, str(release_tutorial / "scripts/vla_relcomp.py"), "doctor",
+            "--repo-root", str(release_repo), "--tutorial-root", str(release_tutorial), "--upstream", str(upstream),
+        ], expect=2)
         status_report = command([sys.executable, str(root / "scripts/vla_relcomp.py"), "status", "--run-root", str(run_root)])
         resume_report = command([sys.executable, str(root / "scripts/vla_relcomp.py"), "resume", "--run-root", str(run_root)])
         if '"next_checkpoint": "C1"' not in str(status_report["stdout"]) or "create_new_retry_run" not in str(resume_report["stdout"]):
             raise AssertionError("unified status/resume did not preserve terminal failure semantics")
         checks.append({
             "check": "unified_setup_status_resume_fixture", "status": "passed",
-            "accepted": ["setup_plan_only", "read_only_status", "terminal_failure_resume_guidance"],
+            "accepted": ["setup_plan_only_at_exact_release_tag", "doctor_exact_release_tag", "read_only_status", "terminal_failure_resume_guidance"],
+            "rejected": ["setup_after_post_tag_commit", "doctor_after_post_tag_commit"],
             "evidence_label": "fixture_only_no_command_execution",
         })
         transfer = command([sys.executable, str(root / "scripts/h2_transfer_to_host.py"), "--host", "vla-relcomp-h2", "--package-id", "fixture-package", "--tutorial-root", str(root)])

@@ -4,7 +4,7 @@
 
 RunPod 首次实跑的唯一推荐配置、30 美元费用闸门、SSH 交接与停止条件见 [`runpod_first_run.md`](runpod_first_run.md)。它是“已选平台、未购买、未运行”的执行页；控制台价格或规格不符时不得静默替换。
 
-私有 GitHub fresh clone、分支/基线校验和教程根自动定位的唯一入口见 [`fresh_clone_quickstart.md`](fresh_clone_quickstart.md)。主教程的冻结画像是零科研基础、但已有 408/C 与少量 Python/Linux/Git；真正零编程基础者先做 `assets/零编程基础前置轨说明.md` 的就绪检查，不扩充原 14 天。
+私有 GitHub fresh clone、受审发布 tag 校验和教程根自动定位的唯一入口见 [`fresh_clone_quickstart.md`](fresh_clone_quickstart.md)。默认是 HTTPS 固定 tag `vla-relcomp-h2.5.1` 的单引用克隆，由 Git Credential Manager 或已登录 GitHub 凭据链处理私库访问；不将 PAT 写入 URL、命令、聊天或仓库。SSH 仅是已验证公钥可用者的可选替代。默认 VLA-Arena 上游位于项目仓库外的 sibling `VLA-Arena-upstream`，避免生成未跟踪 `upstream/` 并破坏 `doctor` 的干净树检查。主教程的冻结画像是零科研基础、但已有 408/C 与少量 Python/Linux/Git；真正零编程基础者先做 `assets/零编程基础前置轨说明.md` 的就绪检查，不扩充原 14 天。
 
 ## 一、唯一目标与边界
 
