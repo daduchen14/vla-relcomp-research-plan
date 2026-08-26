@@ -32,7 +32,7 @@ REQUIRED = (
 )
 FORBIDDEN_PATHS = ("/Users/", "/home/ubuntu", "/root/", "方向筛选/VLA-RelComp_教程", "work/VLA-Arena-upstream")
 SECRET_VALUE = re.compile(r"(?:hf_|ghp_)[A-Za-z0-9\-]{12,}|github_pat_[A-Za-z0-9_\-]{12,}")
-RELEASE_TAG = "vla-relcomp-h2.5.1"
+RELEASE_TAG = "vla-relcomp-h2.5.2"
 PRIVATE_CLONE_COMMAND = f"git clone --branch {RELEASE_TAG} --single-branch https://github.com/daduchen14/vla-relcomp-research-plan.git"
 EMBEDDED_HTTPS_CREDENTIAL = re.compile(r"https://[^/\s:@]+(?::[^@\s/]*)?@github\.com", re.IGNORECASE)
 
@@ -48,18 +48,24 @@ def command(argv: list[str], expect: int = 0) -> dict[str, object]:
 
 
 def release_fixture(tutorial: Path, parent: Path) -> tuple[Path, Path]:
+    seed = parent / "release-seed"
+    seed.mkdir()
+    shutil.copytree(
+        tutorial, seed / "VLA-RelComp_教程",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
+    )
+    command(["git", "-C", str(seed), "init"])
+    command(["git", "-C", str(seed), "config", "user.name", "VLA-RelComp Fixture"])
+    command(["git", "-C", str(seed), "config", "user.email", "fixture@example.invalid"])
+    command(["git", "-C", str(seed), "add", "--", "VLA-RelComp_教程"])
+    command(["git", "-C", str(seed), "commit", "-m", "fixture: audited release"])
+    command(["git", "-C", str(seed), "tag", RELEASE_TAG])
     repo = parent / "release-fixture"
-    repo.mkdir()
-    copied_tutorial = repo / "VLA-RelComp_教程"
-    shutil.copytree(tutorial, copied_tutorial, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"))
-    command(["git", "-C", str(repo), "init"])
-    command(["git", "-C", str(repo), "switch", "-c", "h2-linux-nvidia-preflight"])
-    command(["git", "-C", str(repo), "config", "user.name", "VLA-RelComp Fixture"])
-    command(["git", "-C", str(repo), "config", "user.email", "fixture@example.invalid"])
-    command(["git", "-C", str(repo), "add", "--", "VLA-RelComp_教程"])
-    command(["git", "-C", str(repo), "commit", "-m", "fixture: audited release"])
-    command(["git", "-C", str(repo), "tag", RELEASE_TAG])
-    return repo, copied_tutorial
+    command(["git", "clone", "--shared", "--branch", RELEASE_TAG, "--single-branch", str(seed), str(repo)])
+    heads = command(["git", "-C", str(repo), "for-each-ref", "--format=%(refname)", "refs/heads"])
+    if heads["stdout"]:
+        raise AssertionError("release fixture unexpectedly contains a local development branch")
+    return repo, repo / "VLA-RelComp_教程"
 
 
 def main() -> int:
@@ -223,7 +229,7 @@ def main() -> int:
             raise AssertionError("unified status/resume did not preserve terminal failure semantics")
         checks.append({
             "check": "unified_setup_status_resume_fixture", "status": "passed",
-            "accepted": ["setup_plan_only_at_exact_release_tag", "doctor_exact_release_tag", "read_only_status", "terminal_failure_resume_guidance"],
+            "accepted": ["tag_only_release_clone", "setup_plan_only_at_exact_release_tag", "doctor_exact_release_tag", "read_only_status", "terminal_failure_resume_guidance"],
             "rejected": ["setup_after_post_tag_commit", "doctor_after_post_tag_commit"],
             "evidence_label": "fixture_only_no_command_execution",
         })

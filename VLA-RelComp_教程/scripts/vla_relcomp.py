@@ -13,7 +13,7 @@ from typing import Any
 
 
 UPSTREAM_COMMIT = "babe582ebffc82b979b77964a7e56417d02f63a4"
-RELEASE_TAG = "vla-relcomp-h2.5.1"
+RELEASE_TAG = "vla-relcomp-h2.5.2"
 
 
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:

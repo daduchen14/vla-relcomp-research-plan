@@ -18,7 +18,7 @@ from pathlib import Path
 FORBIDDEN = (
     "/Users/nokian97", "方向筛选/VLA-RelComp_教程", "work/VLA-Arena-upstream",
 )
-RELEASE_TAG = "vla-relcomp-h2.5.1"
+RELEASE_TAG = "vla-relcomp-h2.5.2"
 PRIVATE_CLONE_COMMAND = f"git clone --branch {RELEASE_TAG} --single-branch https://github.com/daduchen14/vla-relcomp-research-plan.git"
 UPSTREAM_COMMIT = "babe582ebffc82b979b77964a7e56417d02f63a4"
 
@@ -71,23 +71,12 @@ def scan_portability(tutorial: Path) -> None:
 
 
 def validate_external_default(
-    source_repo: Path, source_tutorial: Path, upstream: Path, temporary: Path, python: str,
+    source_repo: Path, upstream: Path, temporary: Path, python: str,
 ) -> list[dict[str, object]]:
     parent = temporary / "portable-parent"
     parent.mkdir()
     project = parent / "vla-relcomp-research-plan"
-    run(["git", "clone", "--shared", "--branch", "h2-linux-nvidia-preflight", "--single-branch", str(source_repo), str(project)], temporary)
-    shutil.copytree(
-        source_tutorial, project / "VLA-RelComp_教程", dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
-    )
-    dirty = run(["git", "-C", str(project), "status", "--porcelain"], temporary)
-    if str(dirty["stdout"]):
-        run(["git", "-C", str(project), "config", "user.name", "VLA-RelComp Fixture"], temporary)
-        run(["git", "-C", str(project), "config", "user.email", "fixture@example.invalid"], temporary)
-        run(["git", "-C", str(project), "add", "--", "VLA-RelComp_教程"], temporary)
-        run(["git", "-C", str(project), "commit", "-m", "fixture: current portability tree"], temporary)
-    run(["git", "-C", str(project), "tag", "-f", RELEASE_TAG], temporary)
+    run(["git", "clone", "--shared", "--branch", RELEASE_TAG, "--single-branch", str(source_repo), str(project)], temporary)
     tutorial = project / "VLA-RelComp_教程"
     setup = run([
         python, str(tutorial / "scripts" / "vla_relcomp.py"), "setup", "--dry-run", "--repo-root", str(project),
@@ -111,6 +100,27 @@ def validate_external_default(
     return [setup, doctor]
 
 
+def tag_only_source(source_repo: Path, temporary: Path) -> Path:
+    seed = temporary / "tag-only-seed"
+    seed.mkdir()
+    shutil.copytree(
+        source_repo, seed, dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".DS_Store"),
+    )
+    run(["git", "-C", str(seed), "init"], temporary)
+    run(["git", "-C", str(seed), "config", "user.name", "VLA-RelComp Fixture"], temporary)
+    run(["git", "-C", str(seed), "config", "user.email", "fixture@example.invalid"], temporary)
+    run(["git", "-C", str(seed), "add", "--", "README.md", "26_教程任务交接说明.md", "VLA-RelComp_教程"], temporary)
+    run(["git", "-C", str(seed), "commit", "-m", "fixture: audited tag-only source"], temporary)
+    run(["git", "-C", str(seed), "tag", RELEASE_TAG], temporary)
+    source = temporary / "tag-only-source"
+    run(["git", "clone", "--shared", "--branch", RELEASE_TAG, "--single-branch", str(seed), str(source)], temporary)
+    heads = run(["git", "-C", str(source), "for-each-ref", "--format=%(refname)", "refs/heads"], temporary)
+    if heads["stdout"]:
+        raise AssertionError("formal tag-only source unexpectedly contains a local development branch")
+    return source
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, required=True)
@@ -120,13 +130,19 @@ def main() -> int:
     upstream = args.upstream.resolve()
     if not (source_repo / ".git").exists() or not (upstream / ".git").exists():
         raise SystemExit("repo root and locked upstream must be Git checkouts")
+    source_head = run(["git", "-C", str(source_repo), "rev-parse", "HEAD"], source_repo)["stdout"]
+    source_tag = run(["git", "-C", str(source_repo), "tag", "--list", RELEASE_TAG], source_repo)["stdout"]
+    input_source_matches_release = False
+    if source_tag == RELEASE_TAG:
+        source_release = run([
+            "git", "-C", str(source_repo), "rev-parse", "--verify", f"refs/tags/{RELEASE_TAG}^{{commit}}",
+        ], source_repo)["stdout"]
+        input_source_matches_release = source_release == source_head
     with tempfile.TemporaryDirectory(prefix="vla-relcomp-fresh-") as temporary:
-        root = Path(temporary) / "fresh-checkout"
-        shutil.copytree(
-            source_repo, root,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".DS_Store"),
-        )
-        (root / ".git").mkdir()
+        temporary_path = Path(temporary)
+        audited_source = tag_only_source(source_repo, temporary_path)
+        root = temporary_path / "fresh-checkout"
+        run(["git", "clone", "--shared", "--branch", RELEASE_TAG, "--single-branch", str(audited_source), str(root)], temporary_path)
         tutorial = root / "VLA-RelComp_教程"
         scan_portability(tutorial)
         before = inventory(tutorial)
@@ -154,13 +170,15 @@ def main() -> int:
         checks.append(run([
             python, str(tutorial / "scripts" / "h2_validate_package.py"), str(tutorial), str(upstream),
         ], root))
-        external_default_checks = validate_external_default(source_repo, source_repo / "VLA-RelComp_教程", upstream, Path(temporary), python)
+        external_default_checks = validate_external_default(audited_source, upstream, temporary_path, python)
         after = inventory(tutorial)
         if before != after:
             raise AssertionError("help/read-only tutorial commands changed isolated tutorial files")
         payload = {
-            "status": "passed", "isolated_copy": True, "checks": len(checks) + 2 + len(external_default_checks),
+            "status": "passed", "isolated_copy": True, "checks": len(checks) + 3 + len(external_default_checks),
             "help_scripts": list(help_scripts),
+            "tag_only_source": True, "tag_only_source_local_heads": 0,
+            "input_source_head_matches_release_tag": input_source_matches_release,
             "default_upstream": "repository_external_sibling_doctor_ready",
             "claim_boundary": "Free isolated-copy and local-Git regression; no network, model, simulator, GPU, or Gate claim.",
         }

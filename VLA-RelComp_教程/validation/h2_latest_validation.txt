@@ -1,4 +1,4 @@
-UTC 2026-08-26 H2.5.1 portability transport/default-upstream offline rerun
+UTC 2026-08-26 H2.5.2 tag-only portability offline rerun
 PASS py_compile tutorial_scripts=24
 PASS H1 upstream commit=babe582ebffc82b979b77964a7e56417d02f63a4 critical_paths=9 bddl/init=5,5,5
 PASS H1 Day0-Day14 structural requirements
@@ -9,7 +9,7 @@ PASS H1 stage fixture=2,3,5,6 synthetic
 PASS H1 registry fixture rows=5 synthetic
 PASS H2 required_files=31 active_repo_and_tutorial_scan_files=67 forbidden_paths_credentials=clean
 PASS H2 documented_cli_help=10 validate_upstream_positional_args=1 read_only
-PASS H2 private_clone=https fixed_release_tag=vla-relcomp-h2.5.1 single_branch credentials=external_manager ssh=optional no_embedded_secret
+PASS H2 private_clone=https fixed_release_tag=vla-relcomp-h2.5.2 lightweight single_branch credentials=external_manager ssh=optional no_embedded_secret
 PASS H2 unified setup=plan_only status/resume=read_only smoke=prerequisite_checked_command_not_executed
 PASS H2 setup_default_upstream=repository_external_sibling doctor=ready project_tree=clean local_git_fixture
 PASS H2 setup_doctor exact_release_tag accepted post_tag_commit rejected
@@ -22,6 +22,6 @@ PASS H2 pair/oracle two-seed fixture allowed_rows=8 matched=4 recovery=2
 PASS H2 C7 statistics cells=0,2,0,2 recovery=2/2 damage=0/2 exact_mcnemar_p=0.5 strata=task,seed,init
 PASS H2 C7 statistics rejects missing/exception; zero denominator=null
 PASS H2 language_oracle exact_four_fields accepted source_field rejected
-PASS fresh_checkout isolated_checks=22 no_network_no_tutorial_mutation
+PASS fresh_checkout isolated_checks=23 tag_only_source=true local_heads=0 no_network_no_tutorial_mutation
 PASS H2 full_checks=23
 BOUNDARY no GPU, CUDA kernel, EGL context, MuJoCo episode, checkpoint load, model/data download, training, true success rate, VRAM/wall-clock result, pair reachability, oracle result, visual-oracle execution, or Gate 1-3 decision

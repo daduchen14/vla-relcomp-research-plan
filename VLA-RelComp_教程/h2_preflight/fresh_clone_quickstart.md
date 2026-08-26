@@ -5,15 +5,17 @@
 ## 1. 获取不可漂移的受审发布
 
 ```bash
-git clone --branch vla-relcomp-h2.5.1 --single-branch https://github.com/daduchen14/vla-relcomp-research-plan.git
+git clone --branch vla-relcomp-h2.5.2 --single-branch https://github.com/daduchen14/vla-relcomp-research-plan.git
 cd vla-relcomp-research-plan
 git describe --tags --exact-match
 git rev-parse HEAD
-git rev-list -n 1 vla-relcomp-h2.5.1
+git rev-list -n 1 vla-relcomp-h2.5.2
 git status --short
 ```
 
-HTTPS 克隆若请求身份，只使用操作系统的 Git Credential Manager/凭据弹窗或已登录的 GitHub 工具；不要把 PAT 改写进 URL。`git describe` 必须输出 `vla-relcomp-h2.5.1`，后两个 SHA 必须相同，`status --short` 必须为空。该 tag 是受审发布锁；不要切换回会继续漂移的开发分支，也不要改到 `main`。`setup` 和 `doctor` 都会再次拒绝 HEAD 不等于该 tag 的 checkout。
+HTTPS 克隆若请求身份，只使用操作系统的 Git Credential Manager/凭据弹窗或已登录的 GitHub 工具；不要把 PAT 改写进 URL。`git describe` 必须输出 `vla-relcomp-h2.5.2`，后两个 SHA 必须相同，`status --short` 必须为空。该 lightweight tag 是受审发布锁；不要切换回会继续漂移的开发分支，也不要改到 `main`。`setup` 和 `doctor` 都会再次拒绝 HEAD 不等于该 tag 的 checkout。
+
+`vla-relcomp-h2.5.1` 保留为不可改写的历史 tag，但其 isolated validator 仍依赖本地开发分支，在正式 tag-only clone 中会失败，不再作为可执行发布入口。
 
 只有在 `ssh -o BatchMode=yes -T git@github.com` 已确认公钥可用时，才可将上述 HTTPS URL 替换为 `git@github.com:daduchen14/vla-relcomp-research-plan.git`。SSH 是可选替代，不是默认入口；验证失败时继续使用 HTTPS。
 
