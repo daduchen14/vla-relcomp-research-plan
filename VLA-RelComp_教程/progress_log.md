@@ -31,6 +31,7 @@
 | H2.2 云端创建与费用闸门 | 已验收（未购买） | 唯一平台/规格、30 美元上限、SSH 交接、库存与替代停止条件 | `h2_preflight/runpod_first_run.md` |
 | H2.3 检查点状态机 | 已验收 | C0→C7 合法转换、前置 Gate、终态证据、失败不可覆盖 | `validation/h2_static_validation.json` |
 | H2.4 云端冷启动交接 | 已验收（未连接） | 版本化 SSH 传输、硬件/运行时两段探针、uv 安装锁与文件校验 | `validation/h2_static_validation.json` |
+| H2.5 可移植性与统一入口 | 已验收（未实跑） | fresh clone、doctor/setup/status/resume/smoke、C7 统计、全文档路径扫描与隔离回归 | `validation/06_H2.5可移植性修复报告.md` |
 
 ## 变更记录
 
@@ -48,6 +49,13 @@
 - H2.2：将首台真实运行固定为 RunPod 按需 `1×A100 SXM 80 GB`、官方 Ubuntu 22.04/CUDA 11.8 PyTorch 模板、50 GB container + 300 GB `/workspace` volume、Full SSH；依据 2026-08-25 官方价格建立 16 GPU·h/30 美元硬上限与不自动替换规则。未登录、未充值、未购买、未运行。
 - H2.3：增加 fail-closed 检查点状态机，消除云上人工编辑 `checkpoint_state.json`、跳级或覆盖失败证据的风险；锁定官方 commit 的全包回归通过 22 项必需文件与 16 组检查，未下载模型、未运行 GPU/episode。
 - H2.4：增加只接受安全 SSH alias 的版本化教程传输器，拒绝覆盖并以 rsync checksum dry-run 复核；把 C0 拆为硬件保留探针与工具安装后 runtime 探针，固定 uv 0.10.8 安装脚本的 68,278 字节/SHA-256。最新全包回归通过 25 项必需文件与 19 组检查；未连接云主机。
+
+### 2026-08-26
+
+- H2.5：清除 Day/H2 作者路径和旧 upstream 假设，修正 `validate_upstream.py` 文档参数，增加 fresh clone 唯一入口与只读 `doctor/setup/status/resume/smoke` 导航。
+- H2.5：新增 manifest-bound C7 四格、recovery/damage、Wilson CI、精确 McNemar 与 task/seed/init 分层；异常/缺行拒绝、零分母 `null` fixture 通过。
+- H2.5：语言 oracle 四字段语法统一；visual oracle 全路径标为规范已有/执行未实现/不可运行；主教程受众和真零编程前置轨边界已写清。
+- 回归：H1 原回归、H2 31 文件/22 组离线检查、全教程 65 文档/代码路径/凭据扫描和 20 项隔离 fresh-checkout 回归通过。全部是 Mac/静态/dry-run/synthetic，未运行 GPU、模型或仿真。
 
 ## 当前下一步
 

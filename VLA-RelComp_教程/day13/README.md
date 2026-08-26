@@ -28,7 +28,7 @@ Recovery=`原失败且干预成功 / 原失败`；damage=`原成功且干预失�
 
 ## 操作步骤、状态与预期输出
 
-`实测`：运行 `analyze_registry.py`；再用 fixture 手工匹配 task/seed/init，确认 language oracle 是失败→成功、visual oracle 是失败保持失败但阶段改善。`待用户执行`：制作四格表和按 task/seed 分层表。`静态核验`：协议要求小样本报原始计数、CI 和精确检验。`估计—未运行`：真实至少两 seed 数据尚无。
+`实测`：`analyze_registry.py` 仅验证教学 registry 的分级 success/Wilson 形状；H2 的 `analyze_c7.py` 用 manifest-bound fixture 实测四格、recovery/damage、Wilson CI、精确 McNemar 和 task/seed/init 分层。两者都是 fixture，不是 oracle 真实结果。`待用户执行`：对真实 C7 输出复核四格和分层表。`静态核验`：协议要求小样本报原始计数、CI 和精确检验。`估计—未运行`：真实至少两 seed 数据尚无；visual oracle 执行未实现。
 
 变量实验：移除唯一恢复 pair，观察恢复率从 1/1 变无可估计，说明极小样本不稳定。预期任何除零都应明确 NA，不填 0。
 

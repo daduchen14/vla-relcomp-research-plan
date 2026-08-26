@@ -32,10 +32,12 @@ L0 不是“必然简单成功”，L2 也不是“所有方面全新”。若�
 
 `实测` / `待用户执行`：
 
+`VLA_ARENA_UPSTREAM` 必须由 fresh clone 入口显式设置并通过 `validate_upstream.py`；未定位锁定上游时不运行解析器。
+
 ```bash
-cd '/Users/nokian97/Documents/Codex/2026-08-24/x/方向筛选/VLA-RelComp_教程'
+cd "$(git rev-parse --show-toplevel)/VLA-RelComp_教程"
 mkdir -p validation/generated
-python3 scripts/parse_bddl.py --upstream-root '../../work/VLA-Arena-upstream' --output validation/generated/task_manifest.csv
+python3 scripts/parse_bddl.py --upstream-root "$VLA_ARENA_UPSTREAM" --output validation/generated/task_manifest.csv
 ```
 
 预期 `wrote 15 tasks`，levels 为 `{0:5,1:5,2:5}`。CSV 每行有 language、obj_of_interest、goal 和路径。若上游克隆不在该路径，改 `--upstream-root`，不要改脚本逻辑。

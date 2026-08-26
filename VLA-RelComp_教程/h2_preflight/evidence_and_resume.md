@@ -54,6 +54,8 @@ runs/<run_id>/
 4. Oracle 使用的 object id/真值框/goal 解析必须标 `privileged`，不进入最终方法。
 5. 至少 2 seeds 的重复证据齐全后才填 Gate 3；单个好看视频不过 Gate。
 6. C7 使用独立 registry；事后审计以 manifest 为唯一允许集合，未登记、缺行、重复、pair_family/changed_factor 等字段漂移或证据路径为空均失败。
+7. `analyze_c7.py` 只接受通过上述审计的行，同时报四格原始计数、recovery/damage 及 Wilson CI、精确 McNemar 和 task/seed/init 分层；分母为零时输出 `null`，不伪写 0。
+8. Visual oracle 只有规范，执行未实现、不可运行；sample fixture 中的行不是真实原型或 C7 证据。
 
 ## 云实例关闭前检查
 

@@ -124,6 +124,10 @@ python3 "$H2_TUTORIAL/scripts/h2_pair_oracle_audit.py" \
   --manifest "$H2_RUN/registry/pair_manifest.csv" \
   --registry "$H2_RUN/registry/c7_episode_registry.csv" --require-ready \
   --output "$H2_RUN/results/c7_pair_oracle_audit.json"
+python3 "$H2_TUTORIAL/scripts/analyze_c7.py" \
+  --manifest "$H2_RUN/registry/pair_manifest.csv" \
+  --registry "$H2_RUN/registry/c7_episode_registry.csv" \
+  --output "$H2_RUN/results/c7_pair_statistics.json"
 ```
 
-第一条要求同一 `pair_family` 至少两个 seed，每个 `pair_id` 两个 condition；runner 为每个 condition 生成 none+language_oracle；最后一条以 manifest 为唯一允许集，拒绝未登记、缺行、重复或冻结字段不一致，只计 matched recovery/damage，不自动下 Gate 3 结论。视觉 oracle 未实现，不能写成可运行。
+第一条要求同一 `pair_family` 至少两个 seed，每个 `pair_id` 两个 condition；runner 为每个 condition 生成 none+language_oracle；事后审计以 manifest 为唯一允许集，拒绝未登记、缺行、重复或冻结字段不一致；统计器再报四格、recovery/damage、Wilson CI、精确 McNemar 和 task/seed/init 分层。两者都不自动下 Gate 3 结论。视觉 oracle 规范已有，但执行未实现、不可运行。

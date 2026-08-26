@@ -83,10 +83,12 @@ PY
 
 在本地锁定源码依次搜索：
 
+`VLA_ARENA_UPSTREAM` 必须由 fresh clone 入口显式设置并通过 `validate_upstream.py`；变量为空时先停止，不猜相对路径。
+
 ```bash
 rg -n "def run_episode|select_action|predict_action_chunk|def forward" \
-  work/VLA-Arena-upstream/vla_arena/models/smolvla/evaluator.py \
-  work/VLA-Arena-upstream/vla_arena/models/smolvla/src/lerobot/policies/smolvla
+  "$VLA_ARENA_UPSTREAM/vla_arena/models/smolvla/evaluator.py" \
+  "$VLA_ARENA_UPSTREAM/vla_arena/models/smolvla/src/lerobot/policies/smolvla"
 ```
 
 若从工作目录执行，预期命中 evaluator 的 episode 函数与 policy 的三个关键函数。把自己的初稿图改成：环境 obs/指令 → evaluator 构造 batch → `select_action` → 队列缺动作时 `predict_action_chunk` → action → `env.step` → 新 obs。不要把所有 `forward` 都画成一条直线；区分训练 forward 与推理入口。

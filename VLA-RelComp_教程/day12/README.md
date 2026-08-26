@@ -10,7 +10,7 @@
 
 ## 具体场景与最小例子
 
-原指令较长；语言 oracle 统一为 `target=tomato_3; source=in top drawer; action=place; relation=on; reference=bowl_3 between vase and teapot`。视觉 oracle 在渲染图上给目标/参照加可撤销轮廓。两者均利用 simulator 真值，必须标 privileged。
+原指令较长；当前可执行语言 oracle 的冻结语法只有四个字段：`target=tomato_3; action=place; relation=on; reference=porcelain_bowl_3`。不加 `source` 或自由文本键；语法与 `h2_pair_oracle_audit.py` 一致。视觉 oracle 只已写出“渲染后、模型预处理前加可撤销轮廓”的规范；执行代码尚未实现、不可运行。两者都使用 simulator 真值，必须标 privileged。
 
 ## 零基础知识讲义
 
@@ -28,13 +28,13 @@ Oracle 是把某环节变得近似正确，观察整体是否恢复的诊断干�
 
 ## 操作步骤、状态与预期输出
 
-`静态核验`：确认 baseline `use_replacements:false`；语言 oracle 另设 intervention 名。`待用户执行`：写两份 intervention spec，含输入真值、变换、撤销、对照、风险、输出字段。`实测`：在 fixture registry 对比同 task/seed/init 的 none 与 language_oracle 行，列失败→成功；视觉行显示阶段改善但 goal 未恢复。`估计—未运行`：真实渲染提示与 checkpoint 行为未测。
+`静态核验`：确认 baseline `use_replacements:false`；语言 oracle 另设 intervention 名。`待用户执行`：写语言 intervention spec，含输入真值、变换、撤销、对照、风险、输出字段；视觉 oracle 只保留同格式规范，不伪写执行步骤。`实测`：fixture registry 只演示 schema 和分析形状，不代表任一 oracle 真实原型运行。`估计—未运行`：语言 oracle 的 checkpoint 行为未测；视觉 oracle 执行尚未实现。
 
 预期报告同时含 `intervention_recovery` 与 `intervention_damage`；恢复样本分母是原失败，damage 分母是原成功。fixture 仅教学。
 
 ## 在真实代码中的位置
 
-语言变体通过 evaluator 指令入口；视觉提示应包装 observation 渲染后、模型预处理前；原始图像必须保留。实现放 `src/interventions`，oracle 输入字段不进入最终修复配置。
+语言变体已由 H2 C7 runner 通过 evaluator 指令入口执行，但尚无真实 episode 结果。视觉提示若未来由真实证据触发，应包装 observation 渲染后、模型预处理前，并保留原始图像；当前不存在 `src/interventions` 执行实现。Oracle 输入字段不进入最终修复配置。
 
 ## 常见错误、诊断顺序、备用路线与止损
 
@@ -42,11 +42,11 @@ Oracle 是把某环节变得近似正确，观察整体是否恢复的诊断干�
 
 ## 时间预算、最低完成线、标准完成线与选做
 
-正常 6–8 小时。最低：两个规范+无干预对照。标准：特权信息、damage、可撤销与最终方法隔离均写清。选做：设计 placebo 提示但不扩第三种 oracle。
+正常 6–8 小时。最低：可执行 language 规范+不可执行 visual 规范+无干预对照，状态不得混用。标准：特权信息、damage、可撤销与最终方法隔离均写清。选做：设计 placebo 提示但不扩第三种 oracle。
 
 ## 当日交付物
 
-language/visual spec、对照表、首轮 fixture 结果、代码差异计划、口述。
+language 可执行 spec、visual 不可执行 spec、对照表、schema-only fixture 分析、代码边界说明、口述。
 
 ## 自测题、参考答案与复试口述
 

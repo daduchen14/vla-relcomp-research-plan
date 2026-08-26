@@ -65,7 +65,7 @@ CPU 适合通用控制，GPU 擅长大规模并行矩阵运算。张量和模型
 ### 1. 纯 Python action chunk（`实测` / `待用户执行`）
 
 ```bash
-cd '/Users/nokian97/Documents/Codex/2026-08-24/x/方向筛选/VLA-RelComp_教程'
+cd "$(git rev-parse --show-toplevel)/VLA-RelComp_教程"
 python3 scripts/action_chunk_demo.py > validation/day02_action_chunk_user.txt
 ```
 

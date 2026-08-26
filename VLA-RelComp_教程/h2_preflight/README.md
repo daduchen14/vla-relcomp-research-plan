@@ -4,6 +4,8 @@
 
 RunPod 首次实跑的唯一推荐配置、30 美元费用闸门、SSH 交接与停止条件见 [`runpod_first_run.md`](runpod_first_run.md)。它是“已选平台、未购买、未运行”的执行页；控制台价格或规格不符时不得静默替换。
 
+私有 GitHub fresh clone、分支/基线校验和教程根自动定位的唯一入口见 [`fresh_clone_quickstart.md`](fresh_clone_quickstart.md)。主教程的冻结画像是零科研基础、但已有 408/C 与少量 Python/Linux/Git；真正零编程基础者先做 `assets/零编程基础前置轨说明.md` 的就绪检查，不扩充原 14 天。
+
 ## 一、唯一目标与边界
 
 本包把 D0—D14 的真实参考运行准备到：拿到一台 Linux/NVIDIA 实例后，可按检查点复制执行，且每步有版本、命令、时间、退出码、GPU 快照、日志、结果和哈希可追溯。唯一 suite 仍是 `extrapolation_preposition_combinations`，不训练、不扩第二 suite，不提前设计 D15 以后修复。
@@ -95,7 +97,7 @@ git clone https://github.com/PKU-Alignment/VLA-Arena.git "$H2_UPSTREAM"
 git -C "$H2_UPSTREAM" switch --detach babe582ebffc82b979b77964a7e56417d02f63a4
 git -C "$H2_UPSTREAM" status --short
 python3 "$H2_TUTORIAL/scripts/validate_upstream.py" \
-  "$H2_UPSTREAM" babe582ebffc82b979b77964a7e56417d02f63a4
+  "$H2_UPSTREAM"
 ```
 
 `status --short` 必须为空。不在 upstream 内改 YAML、evaluator 或 BDDL；H2 差异只位于教程 wrapper、渲染后配置和 `patches/`。
@@ -168,9 +170,27 @@ python3 "$H2_TUTORIAL/scripts/h2_pair_oracle_audit.py" \
   --manifest "$H2_RUN/registry/pair_manifest.csv" \
   --registry "$H2_RUN/registry/c7_episode_registry.csv" --require-ready \
   --output "$H2_RUN/results/c7_pair_oracle_audit.json"
+python3 "$H2_TUTORIAL/scripts/analyze_c7.py" \
+  --manifest "$H2_RUN/registry/pair_manifest.csv" \
+  --registry "$H2_RUN/registry/c7_episode_registry.csv" \
+  --output "$H2_RUN/results/c7_pair_statistics.json"
 ```
 
-runner 只加载一次模型，但为 manifest 每行构造独立 config 副本，使全局 RNG、环境 seed 和 registry seed 一致；每个 condition 依次运行 `none` 与 `language_oracle`，重建环境并显式清理可用的 policy state。语言 oracle 是 `privileged_diagnostic=true`、`final_method_eligible=false`。视觉 oracle 状态为 `not_implemented_not_runnable`，没有伪命令。
+runner 只加载一次模型，但为 manifest 每行构造独立 config 副本，使全局 RNG、环境 seed 和 registry seed 一致；每个 condition 依次运行 `none` 与 `language_oracle`，重建环境并显式清理可用的 policy state。语言 oracle 是 `privileged_diagnostic=true`、`final_method_eligible=false`；`analyze_c7.py` 只在 manifest-bound registry 通过后输出四格、recovery/damage、Wilson CI、精确 McNemar 和 task/seed/init 分层。视觉 oracle 统一标为“规范已有、执行未实现、不可运行”，没有伪命令。
+
+### 6.2 只读统一入口
+
+`scripts/vla_relcomp.py` 是现有 wrapper 的薄导航层，不重写 evaluator：
+
+```bash
+python3 "$H2_TUTORIAL/scripts/vla_relcomp.py" status --run-root "$H2_RUN"
+python3 "$H2_TUTORIAL/scripts/vla_relcomp.py" resume --run-root "$H2_RUN"
+python3 "$H2_TUTORIAL/scripts/vla_relcomp.py" smoke --kind random \
+  --upstream "$H2_UPSTREAM" --run-root "$H2_RUN" \
+  --config "$H2_RUN/configs/random_l0_t1.yaml"
+```
+
+Fresh clone 中的 `doctor` 和 `setup --dry-run` 用法见 `fresh_clone_quickstart.md`。`doctor/status/resume` 只读；`setup --dry-run` 只打印计划；`smoke` 只检查前置状态、锁定源码/配置并打印 argv，不执行 episode。真实命令仍必须在另行授权后，先通过 `h2_checkpoint_state.py` 将当前检查点设为 `running`。统一入口不自动作 Gate 判断。
 
 ### 7. 断点恢复、完成与清理
 

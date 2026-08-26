@@ -30,7 +30,7 @@
 
 ### 为什么现在需要“路径”
 
-计算机不会理解“那个教程文件”。绝对路径从磁盘根开始，例如 `/Users/.../x`；相对路径从当前工作目录开始，例如 `方向筛选/VLA-RelComp_教程`。`pwd` 回答“我站在哪里”，`ls` 回答“这里有什么”。同一条相对命令在不同目录可能指向不同文件，所以每段教程都写明从哪个目录执行。
+计算机不会理解“那个教程文件”。绝对路径从磁盘根开始；相对路径从当前工作目录开始。`pwd` 回答“我站在哪里”，`ls` 回答“这里有什么”。同一条相对命令在不同目录可能指向不同文件，所以本教程先用 Git 自动定位仓库根，不记住某台电脑的路径。
 
 ### 为什么现在需要“环境”
 
@@ -66,22 +66,24 @@ Agent 可生成脚手架、查路径和帮助排错；你必须能说清输入�
 
 ## 操作步骤、状态与预期输出
 
-以下命令均从工作目录 `/Users/nokian97/Documents/Codex/2026-08-24/x` 开始。
+以下命令从私有仓库 clone 内任一目录开始。首次请先完成 `h2_preflight/fresh_clone_quickstart.md`。
 
 ### 1. 只读定位（`待用户执行`；制作者已 `实测`）
 
 ```bash
 pwd
-ls '方向筛选/VLA-RelComp_教程'
+export VLA_RELCOMP_REPO="$(git rev-parse --show-toplevel)"
+export VLA_RELCOMP_TUTORIAL="$VLA_RELCOMP_REPO/VLA-RelComp_教程"
+cd "$VLA_RELCOMP_TUTORIAL"
+ls
 ```
 
-正常预期输出第一行是工作目录绝对路径；列表中应有 `assets`、`scripts`、`validation` 和 `progress_log.md`。路径不一致意味着你站错目录，不要靠不断加 `../` 猜；先 `cd` 到工作目录再重试。
+`pwd` 应显示你位于该私有 clone 内；`git rev-parse` 随后找到唯一仓库根，`cd` 后列表中应有 `assets`、`scripts`、`validation` 和 `progress_log.md`。如果 `git rev-parse` 失败，不要靠不断加 `../` 猜；回到 fresh clone 入口重新定位。
 
 ### 2. 本机探针（`待用户执行`；制作者已 `实测`）
 
 ```bash
-python3 '方向筛选/VLA-RelComp_教程/scripts/system_probe.py' \
-  > '方向筛选/VLA-RelComp_教程/validation/day00_system_probe_user.json'
+python3 scripts/system_probe.py > validation/day00_system_probe_user.json
 ```
 
 输出是 JSON：`platform`/`machine` 表示当前系统架构；`python` 与 `python_executable` 表示真正调用的解释器；`tools.git` 和 `tools.uv` 是工具版本；`nvidia_smi` 在 Mac 上预计为 `null`。最后这一项只说明当前机器没有 NVIDIA 管理工具，不是 Gate 1 失败，因为 Gate 1 明确发生在正确 Linux/NVIDIA 环境。
@@ -89,7 +91,7 @@ python3 '方向筛选/VLA-RelComp_教程/scripts/system_probe.py' \
 ### 3. 锁文件人工核对（`静态核验`）
 
 ```bash
-sed -n '1,80p' '方向筛选/VLA-RelComp_教程/assets/upstream.lock'
+sed -n '1,80p' assets/upstream.lock
 ```
 
 检查完整 commit 为 `babe582ebffc82b979b77964a7e56417d02f63a4`，显示名与注册名不同。若官方 `main` 以后移动，不直接把 lock 改成新值：先比较目标 suite、evaluator、success 和 init-state 相关差异，写变更审查后决定。

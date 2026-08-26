@@ -56,7 +56,7 @@ Episode 是从 reset/设定 init state 开始，到成功或超时/异常结束�
 从教程根目录执行：
 
 ```bash
-cd '/Users/nokian97/Documents/Codex/2026-08-24/x/方向筛选/VLA-RelComp_教程'
+cd "$(git rev-parse --show-toplevel)/VLA-RelComp_教程"
 python3 scripts/action_chunk_demo.py
 ```
 

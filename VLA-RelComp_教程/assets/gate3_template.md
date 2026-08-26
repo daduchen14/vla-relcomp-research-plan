@@ -2,6 +2,8 @@
 
 H2 运行对应：C6 的只读状态旁路与 C7 的最小 pair/oracle pilot 均须有真实证据。阈值未校准、pair 未验可达或只有 fixture 时，不得勾选“通过”。
 
+当前 oracle 执行边界：language oracle 有 C7 runner 但尚未真实运行；visual oracle 只有规范，执行未实现、不可运行。Sample fixture 中的 `visual_oracle` 行只演示 schema，不是原型证据。
+
 ## 冻结证据
 
 - repo/model/data revision：

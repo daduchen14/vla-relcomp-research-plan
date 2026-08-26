@@ -40,7 +40,7 @@ Instrumentation 是测量旁路：读取环境状态、计算事件、写日志�
 `实测` / `待用户执行`：
 
 ```bash
-cd '/Users/nokian97/Documents/Codex/2026-08-24/x/方向筛选/VLA-RelComp_教程'
+cd "$(git rev-parse --show-toplevel)/VLA-RelComp_教程"
 python3 scripts/stage_probe_demo.py assets/sample_trajectory.csv
 ```
 

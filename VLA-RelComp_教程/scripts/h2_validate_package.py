@@ -8,6 +8,7 @@ import ast
 import csv
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -18,20 +19,25 @@ from pathlib import Path
 EXPECTED_COMMIT = "babe582ebffc82b979b77964a7e56417d02f63a4"
 REQUIRED = (
     "h2_preflight/README.md", "h2_preflight/runpod_first_run.md", "h2_preflight/checkpoint_matrix.md", "h2_preflight/security_version_audit.md",
-    "h2_preflight/evidence_and_resume.md", "h2_preflight/configs/random_l0.yaml",
+    "h2_preflight/evidence_and_resume.md", "h2_preflight/fresh_clone_quickstart.md", "h2_preflight/configs/random_l0.yaml",
     "h2_preflight/configs/smolvla_l0.yaml", "h2_preflight/configs/openvla_l0.yaml",
     "assets/h2_assets.lock", "assets/h2_tooling.lock", "assets/h2_stage_sidecar_schema.csv",
     "scripts/h2_system_probe.py", "scripts/h2_prepare_run.py", "scripts/h2_checkpoint_state.py", "scripts/h2_transfer_to_host.py", "scripts/h2_verify_file.py", "scripts/h2_capture_command.py",
     "scripts/h2_fetch_assets.py", "scripts/h2_one_episode.py", "scripts/h2_finalize_evidence.py",
     "scripts/h2_stage_sidecar.py", "scripts/h2_pair_oracle_audit.py",
-    "scripts/h2_pilot.py", "scripts/h2_c7_runner.py", "assets/h2_hf_metadata_fixture.json",
+    "scripts/h2_pilot.py", "scripts/h2_c7_runner.py", "scripts/analyze_c7.py", "scripts/vla_relcomp.py",
+    "scripts/validate_fresh_checkout.py", "assets/h2_hf_metadata_fixture.json", "assets/零编程基础前置轨说明.md",
+    "validation/06_H2.5可移植性修复报告.md",
 )
-FORBIDDEN_PATHS = ("/Users/nokian97", "/home/ubuntu", "/root/")
+FORBIDDEN_PATHS = ("/Users/", "/home/ubuntu", "/root/", "方向筛选/VLA-RelComp_教程", "work/VLA-Arena-upstream")
 SECRET_VALUE = re.compile(r"(?:hf_|ghp_)[A-Za-z0-9\-]{12,}|github_pat_[A-Za-z0-9_\-]{12,}")
 
 
 def command(argv: list[str], expect: int = 0) -> dict[str, object]:
-    completed = subprocess.run(argv, text=True, capture_output=True, check=False)
+    completed = subprocess.run(
+        argv, text=True, capture_output=True, check=False,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+    )
     if completed.returncode != expect:
         raise AssertionError(f"command returned {completed.returncode}, expected {expect}: {argv}\n{completed.stdout}\n{completed.stderr}")
     return {"argv": argv, "returncode": completed.returncode, "stdout": completed.stdout.strip(), "stderr": completed.stderr.strip()}
@@ -52,11 +58,12 @@ def main() -> int:
         raise AssertionError(f"missing H2 files: {missing}")
     checks.append({"check": "required_files", "status": "passed", "count": len(REQUIRED)})
 
-    scan_files = [
-        root / relative for relative in REQUIRED
-        if (root / relative).suffix in {".py", ".md", ".yaml", ".lock"}
-        and relative != "scripts/h2_validate_package.py"
-    ]
+    scan_files = sorted(root.rglob("*.md"))
+    scan_files.extend(
+        path for path in sorted((root / "scripts").glob("*.py"))
+        if path.name not in {"h2_validate_package.py", "validate_fresh_checkout.py"}
+    )
+    scan_files.extend(sorted((root / "h2_preflight" / "configs").glob("*.yaml")))
     violations = []
     for path in scan_files:
         text = path.read_text()
@@ -67,7 +74,20 @@ def main() -> int:
             violations.append(f"{path.relative_to(root)}:credential-like-value")
     if violations:
         raise AssertionError(f"security scan violations: {violations}")
-    checks.append({"check": "paths_and_credentials", "status": "passed"})
+    checks.append({"check": "all_tutorial_docs_paths_and_credentials", "status": "passed", "files": len(scan_files)})
+
+    help_scripts = (
+        "validate_upstream.py", "h2_prepare_run.py", "h2_checkpoint_state.py", "h2_system_probe.py",
+        "h2_one_episode.py", "h2_pilot.py", "h2_c7_runner.py", "h2_pair_oracle_audit.py",
+        "analyze_c7.py", "vla_relcomp.py",
+    )
+    for script in help_scripts:
+        command([sys.executable, str(root / "scripts" / script), "--help"])
+    command([sys.executable, str(root / "scripts" / "validate_upstream.py"), str(upstream)])
+    checks.append({
+        "check": "documented_cli_help_and_arguments", "status": "passed", "scripts": list(help_scripts),
+        "validate_upstream_positional_args": 1, "evidence_label": "read_only_no_episode",
+    })
 
     lock_rows = []
     for line in (root / "assets/h2_assets.lock").read_text().splitlines():
@@ -135,6 +155,21 @@ def main() -> int:
         if state_fixture["C0"]["status"] != "passed" or state_fixture["C1"]["status"] != "failed" or len(state_fixture["C1"]["history"]) != 2:
             raise AssertionError("checkpoint state transitions were not persisted")
         checks.append({"check": "checkpoint_state_machine_fixture", "status": "passed", "accepted": ["C0 pending->running->passed", "C1 pending->running->failed"], "rejected": ["terminal restart", "predecessor bypass", "pending direct pass", "terminal with missing planned evidence"], "evidence_label": "fixture_only"})
+        setup_plan = command([
+            sys.executable, str(root / "scripts/vla_relcomp.py"), "setup", "--dry-run",
+            "--repo-root", str(root.parent), "--tutorial-root", str(root), "--upstream", str(upstream),
+        ])
+        if "dry_run_no_commands_executed" not in str(setup_plan["stdout"]):
+            raise AssertionError("unified setup unexpectedly executed or changed its boundary")
+        status_report = command([sys.executable, str(root / "scripts/vla_relcomp.py"), "status", "--run-root", str(run_root)])
+        resume_report = command([sys.executable, str(root / "scripts/vla_relcomp.py"), "resume", "--run-root", str(run_root)])
+        if '"next_checkpoint": "C1"' not in str(status_report["stdout"]) or "create_new_retry_run" not in str(resume_report["stdout"]):
+            raise AssertionError("unified status/resume did not preserve terminal failure semantics")
+        checks.append({
+            "check": "unified_setup_status_resume_fixture", "status": "passed",
+            "accepted": ["setup_plan_only", "read_only_status", "terminal_failure_resume_guidance"],
+            "evidence_label": "fixture_only_no_command_execution",
+        })
         transfer = command([sys.executable, str(root / "scripts/h2_transfer_to_host.py"), "--host", "vla-relcomp-h2", "--package-id", "fixture-package", "--tutorial-root", str(root)])
         transfer_payload = json.loads(str(transfer["stdout"]))
         if transfer_payload["status"] != "dry_run_no_remote_write" or transfer_payload["remote_destination"] != "/workspace/vla-relcomp-h2/tutorial/fixture-package/VLA-RelComp_教程":
@@ -147,6 +182,41 @@ def main() -> int:
         if len(rendered) != 3 or any("__H2_" in path.read_text() for path in rendered):
             raise AssertionError("config render did not produce three resolved YAML files")
         checks.append({"check": "init_and_render_fixture", "status": "passed", "configs": [path.name for path in rendered], "evidence_label": "fixture_only"})
+        smoke_plan = command([
+            sys.executable, str(root / "scripts/vla_relcomp.py"), "smoke", "--kind", "random",
+            "--config", str(run_root / "configs/random_l0_t1.yaml"), "--upstream", str(upstream),
+            "--run-root", str(run_root), "--tutorial-root", str(root),
+        ], expect=2)
+        if '"status": "blocked"' not in str(smoke_plan["stdout"]) or "C1 must be passed" not in str(smoke_plan["stdout"]):
+            raise AssertionError("unified smoke did not fail closed on checkpoint prerequisites")
+        navigation_run = temp / "runs" / "fixture_navigation_ready"
+        command([sys.executable, str(root / "scripts/h2_prepare_run.py"), "init", "--run-root", str(navigation_run), "--upstream", str(upstream)])
+        navigation_evidence = navigation_run / "system" / "navigation-fixture.json"
+        navigation_evidence.write_text("{}\n")
+        navigation_state = navigation_run / "checkpoint_state.json"
+        for checkpoint in ("C0", "C1"):
+            command([sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(navigation_state), "--checkpoint", checkpoint, "--status", "running"])
+            command([
+                sys.executable, str(root / "scripts/h2_checkpoint_state.py"), "--state", str(navigation_state),
+                "--checkpoint", checkpoint, "--status", "passed", "--evidence", "system/navigation-fixture.json",
+                "--note", f"{checkpoint} synthetic navigation prerequisite",
+            ])
+        command([
+            sys.executable, str(root / "scripts/h2_prepare_run.py"), "render-configs", "--run-root", str(navigation_run),
+            "--upstream", str(upstream), "--asset-root", str(assets), "--templates", str(templates),
+        ])
+        ready_smoke = command([
+            sys.executable, str(root / "scripts/vla_relcomp.py"), "smoke", "--kind", "random",
+            "--config", str(navigation_run / "configs/random_l0_t1.yaml"), "--upstream", str(upstream),
+            "--run-root", str(navigation_run), "--tutorial-root", str(root),
+        ])
+        if '"status": "ready_to_request_execution"' not in str(ready_smoke["stdout"]) or "command_not_executed" not in str(ready_smoke["stdout"]):
+            raise AssertionError("unified smoke did not print a ready, non-executed command plan")
+        checks.append({
+            "check": "unified_smoke_prerequisite_fixture", "status": "passed",
+            "accepted": ["C2 argv printed after C1 fixture passed"], "rejected": ["C2 plan while C1 failed"],
+            "evidence_label": "static_plan_only_no_episode",
+        })
 
         for model in ("random", "smolvla", "openvla"):
             report = command([
@@ -306,6 +376,40 @@ def main() -> int:
         pair_payload = json.loads(str(pair_report["stdout"]))
         if pair_payload["registry"]["matched"] != 4 or pair_payload["registry"]["recovery"] != 2 or pair_payload["registry"]["manifest_allowed_rows"] != 8:
             raise AssertionError("oracle registry fixture counts changed")
+        from h2_pair_oracle_audit import parse_language_oracle
+        if parse_language_oracle("target=target; action=place; relation=on; reference=ref_a")["reference"] != "ref_a":
+            raise AssertionError("locked four-field language oracle was rejected")
+        try:
+            parse_language_oracle("target=target; source=drawer; action=place; relation=on; reference=ref_a")
+            raise AssertionError("unregistered language-oracle source field was accepted")
+        except ValueError:
+            pass
+        statistics = command([
+            sys.executable, str(root / "scripts/analyze_c7.py"), "--manifest", str(pair_fixture),
+            "--registry", str(pair_registry),
+        ])
+        statistics_payload = json.loads(str(statistics["stdout"]))
+        overall = statistics_payload["overall"]
+        if (
+            overall["matched"] != 4 or overall["cells"] != {
+                "failure_failure": 0, "failure_success": 2, "success_failure": 0, "success_success": 2,
+            }
+            or overall["recovery"]["rate"] != 1.0 or overall["damage"]["rate"] != 0.0
+            or overall["mcnemar"]["two_sided_exact_p"] != 0.5
+            or set(statistics_payload["strata"]) != {"task_id", "seed", "init_state_index"}
+        ):
+            raise AssertionError("C7 paired statistics fixture changed")
+        all_success_registry = temp / "all_success_c7_registry.csv"
+        all_success_rows = [{**row, "success": "1"} for row in rows]
+        with all_success_registry.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader(); writer.writerows(all_success_rows)
+        all_success = command([
+            sys.executable, str(root / "scripts/analyze_c7.py"), "--manifest", str(pair_fixture),
+            "--registry", str(all_success_registry),
+        ])
+        all_success_payload = json.loads(str(all_success["stdout"]))["overall"]
+        if all_success_payload["recovery"] != {"numerator": 0, "denominator": 0, "rate": None, "wilson95": None}:
+            raise AssertionError("zero recovery denominator was not reported as null")
         bad_registry = temp / "bad_c7_registry.csv"
         bad_rows = list(rows) + [{**rows[0], "episode_id": "unregistered", "pair_id": "not-in-manifest"}]
         with bad_registry.open("w", newline="") as handle:
@@ -315,6 +419,7 @@ def main() -> int:
         with missing_registry.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader(); writer.writerows(rows[:-1])
         command([sys.executable, str(root / "scripts/h2_pair_oracle_audit.py"), "--manifest", str(pair_fixture), "--registry", str(missing_registry), "--require-ready"], expect=2)
+        command([sys.executable, str(root / "scripts/analyze_c7.py"), "--manifest", str(pair_fixture), "--registry", str(missing_registry)], expect=2)
         duplicate_registry = temp / "duplicate_c7_registry.csv"
         with duplicate_registry.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader(); writer.writerows(rows + [{**rows[0], "episode_id": "duplicate"}])
@@ -324,6 +429,11 @@ def main() -> int:
         with changed_registry.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader(); writer.writerows(changed_rows)
         command([sys.executable, str(root / "scripts/h2_pair_oracle_audit.py"), "--manifest", str(pair_fixture), "--registry", str(changed_registry), "--require-ready"], expect=2)
+        exception_registry = temp / "exception_c7_registry.csv"
+        exception_rows = [{**row, "exception": "fixture error"} if index == 0 else row for index, row in enumerate(rows)]
+        with exception_registry.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader(); writer.writerows(exception_rows)
+        command([sys.executable, str(root / "scripts/analyze_c7.py"), "--manifest", str(pair_fixture), "--registry", str(exception_registry)], expect=2)
         traversal_manifest = temp / "traversal_manifest.csv"
         traversal_manifest.write_text(pair_fixture.read_text().replace("family1,p1-s7,a", "../escape,p1-s7,a", 1))
         command([sys.executable, str(root / "scripts/h2_pair_oracle_audit.py"), "--manifest", str(traversal_manifest), "--require-ready"], expect=2)
@@ -345,7 +455,13 @@ def main() -> int:
         c7_static = command([sys.executable, str(root / "scripts/h2_c7_runner.py"), "--model", "smolvla", "--config", str(run_root / "configs" / "smolvla_l0_t1.yaml"), "--upstream", str(upstream), "--manifest", str(pair_fixture), "--dry-run"])
         if '"expected_episodes": 8' not in str(c7_static["stdout"]):
             raise AssertionError("C7 runner dry-run did not bind two-seed episodes")
-        checks.append({"check": "pair_oracle_and_c7_runner_fixtures", "status": "passed", "matched": 4, "recovery": 2, "seeds": [7, 11], "rejected": ["unregistered_row", "missing_row", "duplicate_row", "changed_factor_mismatch", "manifest_path_traversal", "derived_path_escape"], "evidence_label": "synthetic_fixture_no_pair_or_episode_claim"})
+        checks.append({
+            "check": "pair_oracle_c7_runner_and_statistics_fixtures", "status": "passed",
+            "matched": 4, "recovery": 2, "seeds": [7, 11], "mcnemar_exact_p": 0.5,
+            "strata": ["task_id", "seed", "init_state_index"], "zero_denominator": "null",
+            "rejected": ["unregistered_row", "missing_row", "duplicate_row", "episode_exception", "changed_factor_mismatch", "language_source_field", "manifest_path_traversal", "derived_path_escape"],
+            "evidence_label": "synthetic_fixture_no_pair_or_episode_claim",
+        })
 
         command([sys.executable, str(root / "scripts/h2_system_probe.py"), "--mode", "static", "--disk-root", str(temp), "--output", str(run_root / "system" / "mac_static_probe.json")])
         probe_payload = json.loads((run_root / "system" / "mac_static_probe.json").read_text())
